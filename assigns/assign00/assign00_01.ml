@@ -17,5 +17,15 @@
 
 *)
 
+
 let sqrt (n : int) : int =
-  (* YOUR CODE GOES HERE *)
+      let rec aux low high =
+         if low > high then high
+         else
+           let mid = low + (high - low) / 2 in
+           let mid_sq = mid * mid in
+           if mid_sq = n then mid
+           else if mid_sq < n then aux (mid + 1) high
+           else aux low (mid - 1)
+       in
+       if n = 0 then 0 else aux 1 n

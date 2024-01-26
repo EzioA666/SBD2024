@@ -18,4 +18,9 @@
 *)
 
 let is_prime (n : int) : bool =
-  (* YOUR CODE GOES HERE *)
+   if n <= 1 then false
+   else
+     let rec check_divisor d =
+       d * d > n || (n mod d <> 0 && check_divisor (d + 1))
+     in
+     check_divisor 2
