@@ -15,4 +15,11 @@
  *)
 
 let is_perfect (n : int) : bool =
-  assert false (* REMOVE THIS LINE AND FILL IN YOUR SOLUTION *)
+    let rec helper i sum =
+        if i > n / 2 then sum = n  (* we just need to compare up to n/2*)
+        else if n mod i = 0 then helper (i + 1) (sum + i)(* If i is a divisor, add it to sum and continue *)
+        else helper (i + 1) sum  
+    in
+    if n <= 1 then false(*1 or less is not perfect *)
+    else helper 1 0
+
