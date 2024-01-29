@@ -28,4 +28,4 @@ let fast_fib (n : int) : int =
     if n = 0 then b
     else fib_aux (n - 1) (a + b) a
   in
-  fib_aux n 1 0
+  fib_aux n 1 1
