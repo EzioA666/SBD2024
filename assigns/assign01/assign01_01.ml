@@ -22,4 +22,8 @@
  *)
 
 let string_rev (s : string) : string =
-  assert false (* REMOVE THIS LINE AND FILL IN YOUR SOLUTION *)
+  let rec rev_helper s result =
+    if String.length s = 0 then result
+    else rev_helper (String.sub s 0 (String.length s - 1)) (result ^ String.make 1 (String.get s (String.length s - 1)))
+  in  
+  rev_helper s ""
