@@ -24,6 +24,8 @@
 let string_rev (s : string) : string =
   let rec rev_helper s result =
     if String.length s = 0 then result
-    else rev_helper (String.sub s 0 (String.length s - 1)) (result ^ String.make 1 (String.get s (String.length s - 1)))
+    else rev_helper (String.sub s 0 (String.length s - 1)) (result ^ String.make 1 (String.get s (String.length s - 1))) 
+    (*string.sub part divides the the original string into a new string without the last char*)
+    (*The second part will append the last char of current string into the result*)
   in  
   rev_helper s ""
