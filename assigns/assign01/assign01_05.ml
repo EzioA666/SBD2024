@@ -40,26 +40,22 @@
  let block_text (s : string) (min_width : int) (max_width : int) : string =
   let len = String.length s in
 
-  let find_optimal_length () =
-    let rec aux possible_line_count =
-      if possible_line_count = 0 then max_width (* Fallback to max_width *)
-      else
-        let line_length = len / possible_line_count in
-        if line_length <= max_width && (len - line_length * (possible_line_count - 1)) >= min_width then
-          line_length
-        else
-          aux (possible_line_count - 1)
-    in
-    if len <= max_width then len else aux (len / min_width)
+  (* Find the optimal line length *)
+  let rec find_line_length l =
+    if l > max_width then max_width
+    else if len mod l >= min_width || len mod l = 0 || l = len then l
+    else find_line_length (l + 1)
   in
-  let line_length = find_optimal_length () in
+  let line_length = find_line_length 1 in
 
-  let rec build_lines i result =
-    if i >= len then result
-    else
-      let end_index = min (i + line_length) len in
-      let line = String.sub s i (end_index - i) in
-      build_lines end_index (result ^ (if i = 0 then "" else "\n") ^ line)
+  (* Build the lines *)
+  let rec build_lines idx result =
+    if idx < len then
+      let next_idx = min (idx + line_length) len in
+      let line = String.sub s idx (next_idx - idx) in
+      build_lines next_idx (result ^ (if idx > 0 then "\n" else "") ^ line)
+    else result
   in
   build_lines 0 ""
+
 
