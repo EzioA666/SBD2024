@@ -37,5 +37,24 @@
 
  *)
 
-let block_text (s : string) (min_width : int) (max_width : int) : string =
-  assert false (* REMOVE THIS LINE AND FILL IN YOUR SOLUTION *)
+ let block_text (s : string) (min_width : int) (max_width : int) : string =
+  let len = String.length s in
+  (* Determine the appropriate line length *)
+  let line_length = 
+    let rec find_length current_length =
+      if current_length > max_width || len - current_length <= current_length then current_length
+      else find_length (current_length + 1)
+    in
+    find_length (max min_width 1)
+  in
+  (* Recursive function to split the string *)
+  let rec split_string index result =
+    if index >= len then result
+    else
+      let next_index = min (index + line_length) len in
+      let line = String.sub s index (next_index - index) in
+      let new_result = if result = "" then line else result ^ "\n" ^ line in
+      split_string next_index new_result
+  in
+  split_string 0 ""
+
