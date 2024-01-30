@@ -23,7 +23,9 @@ let taxicab (n : int) : int =
     else if y > max_val then find_pairs (x + 1) (x + 1) count
     else 
       let cube_sum = x * x * x + y * y * y in
-      if cube_sum = n then find_pairs x (y + 1) (count + 1)
+      if cube_sum = n then 
+        if x = y then find_pairs (x + 1) (y + 1) (count + 1) (* Count only distinct pairs *)
+        else find_pairs x (y + 1) (count + 1)
       else if cube_sum > n then find_pairs (x + 1) x count
       else find_pairs x (y + 1) count
   in
