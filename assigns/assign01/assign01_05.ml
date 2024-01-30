@@ -39,20 +39,27 @@
 
  let block_text (s : string) (min_width : int) (max_width : int) : string =
   let len = String.length s in
-  (* Function to calculate the optimal line length *)
-  let rec find_optimal_length l =
-    if l >= max_width || (len mod l) >= min_width || len = l then l
-    else find_optimal_length (l + 1)
+
+  let find_optimal_length () =
+    let rec aux possible_line_count =
+      if possible_line_count = 0 then max_width (* Fallback to max_width *)
+      else
+        let line_length = len / possible_line_count in
+        if line_length <= max_width && (len - line_length * (possible_line_count - 1)) >= min_width then
+          line_length
+        else
+          aux (possible_line_count - 1)
+    in
+    if len <= max_width then len else aux (len / min_width)
   in
-  let line_length = find_optimal_length 1 in
-  (* Recursive function to split the string and build the result *)
-  let rec build_lines remaining start result =
-    if String.length remaining <= line_length then
-      result ^ (if result = "" then "" else "\n") ^ remaining
+  let line_length = find_optimal_length () in
+
+  let rec build_lines i result =
+    if i >= len then result
     else
-      let line = String.sub remaining 0 line_length in
-      let new_remaining = String.sub remaining line_length (String.length remaining - line_length) in
-      build_lines new_remaining (start + line_length) (result ^ (if start = 0 then "" else "\n") ^ line)
+      let end_index = min (i + line_length) len in
+      let line = String.sub s i (end_index - i) in
+      build_lines end_index (result ^ (if i = 0 then "" else "\n") ^ line)
   in
-  build_lines s 0 ""
+  build_lines 0 ""
 
