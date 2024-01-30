@@ -17,15 +17,15 @@
  *)
 
 let taxicab (n : int) : int =
-    let max_val = int_of_float (float_of_int n ** (1. /. 3.)) in
-    let rec find_pairs x y count =
-      if x > max_val then count
-      else if y > max_val then find_pairs (x + 1) (x + 1) count
-      else 
-        let cube_sum = x * x * x + y * y * y in
-        if cube_sum > n then find_pairs x (y + 1) count
-        else if cube_sum < n then find_pairs (x + 1) y count
-        else find_pairs (x + 1) (y + 1) (count + 1)
-    in
-    find_pairs 1 1 0
+  let max_val = int_of_float (float_of_int n ** (1. /. 3.)) in
+  let rec find_pairs x y count =
+    if x > max_val then count
+    else if y > max_val then find_pairs (x + 1) (x + 1) count
+    else 
+      let cube_sum = x * x * x + y * y * y in
+      if cube_sum = n then find_pairs x (y + 1) (count + 1)
+      else if cube_sum > n then find_pairs (x + 1) x count
+      else find_pairs x (y + 1) count
+  in
+  find_pairs 1 1 0
   
