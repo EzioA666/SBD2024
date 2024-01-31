@@ -60,6 +60,3 @@
         build_string (acc ^ (if acc = "" then "" else "\n") ^ line) next_index
     in
     build_string "" 0
-  
-
-
