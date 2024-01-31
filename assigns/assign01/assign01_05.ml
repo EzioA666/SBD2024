@@ -38,26 +38,28 @@
  *)
 
  let block_text (s : string) (min_width : int) (max_width : int) : string =
-  let total_length = String.length s in
-  (* Start with the simplest case where every line is max_width long *)
-  let base_lines = total_length / max_width in
-  let extra_chars = total_length mod max_width in
-  let optimal_line_count =
-    if extra_chars = 0 then base_lines
-    else if extra_chars >= min_width then base_lines + 1
-    else base_lines
-  in
-  let optimal_line_width =
-    if optimal_line_count = base_lines + 1 then total_length / optimal_line_count
-    else max_width
-  in
-  let rec build_lines current_index line_count =
-    if line_count = 0 then ""
-    else
-      let line_length = if line_count = 1 then total_length - current_index else optimal_line_width in
-      let line = String.sub s current_index line_length in
-      line ^ (if line_count > 1 then "\n" else "") ^ (build_lines (current_index + line_length) (line_count - 1))
-  in
-  build_lines 0 optimal_line_count
+    let len = String.length s in
+    (* A helper function to determine the optimal line width *)
+    let rec find_optimal_line_width n =
+      if n > max_width || (len mod n) < min_width && (len mod n) != 0 then
+        find_optimal_line_width (n - 1)
+      else
+        n
+    in
+    let optimal_width =
+      if len <= max_width then len
+      else find_optimal_line_width (len / (len / max_width))
+    in
+    (* Build the string with the calculated line width *)
+    let rec build_string acc index =
+      if index >= len then
+        acc
+      else
+        let next_index = min (index + optimal_width) len in
+        let line = String.sub s index (next_index - index) in
+        build_string (acc ^ (if acc = "" then "" else "\n") ^ line) next_index
+    in
+    build_string "" 0
+  
 
 
