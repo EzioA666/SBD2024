@@ -23,4 +23,22 @@ type int_or_string
   | String of string
 
 let convert (l : int_or_string list) : int_list_or_string_list list =
-  assert false (* TODO *)
+    let rec aux acc current_ints current_strings = function
+      | [] -> (
+          match (current_ints, current_strings) with
+          | ([], []) -> List.rev acc
+          | (_, []) -> List.rev (IntList (List.rev current_ints) :: acc)
+          | ([], _) -> List.rev (StringList (List.rev current_strings) :: acc)
+        )
+      | (Int i :: t) ->
+          if current_strings <> [] then
+            aux (StringList (List.rev current_strings) :: acc) [i] [] t
+          else
+            aux acc (i :: current_ints) [] t
+      | (String s :: t) ->
+          if current_ints <> [] then
+            aux (IntList (List.rev current_ints) :: acc) [] [s] t
+          else
+            aux acc [] (s :: current_strings) t
+    in
+    aux [] [] [] l
