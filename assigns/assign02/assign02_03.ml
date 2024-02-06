@@ -55,21 +55,10 @@ type user = {
 }
 
 let update_recent (u : user) (time : int) (stale : int) : user =
-  let rec split_by_staleness posts =
-    match posts with
-    | [] -> ([], [])
-    | post :: rest when time - post.timestamp >= stale ->
-        let (older, recent) = split_by_staleness rest in
-        (post :: older, recent)
-    | _ -> ([], posts)
-  in
-  let (to_move, still_recent) = split_by_staleness u.recent_posts in
-  let new_old_posts = List.rev_append to_move u.old_posts in
-  {
-    u with
-    old_posts = new_old_posts;
-    recent_posts = still_recent;
-  }
+  let old_posts, recent_posts =
+  List.partition (fun p -> time - p.timestamp >= stale) u.recent_posts
+in
+{ u with recent_posts = recent_posts; old_posts = old_posts @ u.old_posts }
 
 let p t = {title="";content="";timestamp=t}
 let mk op rp = {
@@ -85,3 +74,6 @@ let mk op rp = {
   old_posts = op;
   recent_posts = rp;
 }
+
+
+
