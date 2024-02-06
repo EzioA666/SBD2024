@@ -25,4 +25,16 @@ type temp
   | Icy of int
 
 let reduce (l : temp list) : temp list =
-  assert false (* TODO *)
+  let rec aux acc = function
+    | [] -> List.rev acc  (* Reverse acc to restore the original order *)
+    | [x] -> List.rev (x :: acc)  (* Handle the last element *)
+    | Hot i :: Icy j :: t when i = j -> aux acc t  (* If Hot i is adjacent to Icy i, skip both *)
+    | Icy i :: Hot j :: t when i = j -> aux acc t  (* If Icy i is adjacent to Hot i, skip both *)
+    | h :: t -> aux (h :: acc) t  (* Otherwise, add the current element to acc and continue *)
+  in
+  let rec reduce_until_stable old_list =
+    let new_list = aux [] old_list in
+    if new_list = old_list then new_list  (* If no changes, return the list *)
+    else reduce_until_stable new_list  (* Otherwise, try reducing again *)
+  in
+  reduce_until_stable l
