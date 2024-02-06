@@ -47,4 +47,17 @@ type point = {
 }
 
 let rec all_paths (len : int) (stp : point) (endp : point) : (dir * int) list list =
-  assert false (* TODO *)
+  let rec explore len (x, y) (target_x, target_y) path =
+    if len = 0 then
+      if x = target_x && y = target_y then [List.rev path] else []
+    else if abs (target_x - x) + abs (target_y - y) > len then
+      []
+    else
+      let moves = 
+        [N, (x, y + 1); S, (x, y - 1); E, (x + 1, y); W, (x - 1, y)] in
+      List.fold_left (fun acc (dir, (nx, ny)) ->
+        if path <> [] && fst (List.hd path) = dir then acc
+        else explore (len - 1) (nx, ny) (target_x, target_y) ((dir, 1)::path)
+      ) [] moves
+  in
+  explore len (stp.x, stp.y) (endp.x, endp.y) []
