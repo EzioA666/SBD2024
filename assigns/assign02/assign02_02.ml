@@ -30,13 +30,14 @@ type recipe = {
 }
 
 let recs_by_ingrs (l : recipe list) (s : ingr list) : recipe list =
-  let rec aux acc recs =
-    match recs with
-    | [] -> List.rev acc
-    | r::rs ->
-        if List.for_all (fun ingr -> List.mem ingr ingrs) r.ingrs then
-          aux (r::acc) rs
+  let rec aux acc recipes =
+    match recipes with
+    | [] -> List.rev acc  (* If no more recipes, return the accumulated list *)
+    | r::rs ->  (* Split the list into head (r) and tail (rs) *)
+        (* Check if all ingredients of r are in the s list *)
+        if List.for_all (fun ingr -> List.mem ingr s) r.ingrs then
+          aux (r::acc) rs 
         else
-          aux acc rs
+          aux acc rs  
   in
-  aux [] recs
+  aux [] l
