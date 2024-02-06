@@ -30,4 +30,13 @@ type recipe = {
 }
 
 let recs_by_ingrs (l : recipe list) (s : ingr list) : recipe list =
-  assert false (* TODO *)
+  let rec aux acc recs =
+    match recs with
+    | [] -> List.rev acc
+    | r::rs ->
+        if List.for_all (fun ingr -> List.mem ingr ingrs) r.ingrs then
+          aux (r::acc) rs
+        else
+          aux acc rs
+  in
+  aux [] recs
