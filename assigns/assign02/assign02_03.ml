@@ -55,25 +55,22 @@ type user = {
 }
 
 let update_recent (u : user) (time : int) (stale : int) : user =
- (* Separate recent_posts into posts to move to old_posts and posts to keep in recent_posts *)
- let rec partition (to_move : post list) (to_keep : post list) (posts : post list) =
-  match posts with
-  | [] -> (to_move, to_keep)
-  | post :: rest ->
-      if time - post.timestamp >= stale then
-        partition (post :: to_move) to_keep rest
-      else
-        partition to_move (post :: to_keep) rest
-in
-let (posts_to_move, remaining_recent_posts) = partition [] [] (List.rev u.recent_posts) in
-(* We reversed the list for partitioning to maintain the order of timestamps when adding to to_move and to_keep *)
-
-(* Update the user's posts *)
-{
-  u with
-  old_posts = List.rev_append posts_to_move u.old_posts; (* Merge and reverse to maintain decreasing order *)
-  recent_posts = List.rev remaining_recent_posts; (* Reverse to restore original decreasing order *)
-}
+  let rec partition to_move to_keep posts =
+    match posts with
+    | [] -> (List.rev to_move, to_keep)  (* Reverse to_move to maintain order *)
+    | post :: rest ->
+        if time - post.timestamp >= stale then
+          partition (post :: to_move) to_keep rest
+        else
+          partition to_move (post :: to_keep) rest
+  in
+  let (posts_to_move, remaining_recent_posts) = partition [] [] u.recent_posts in
+  (* No need to reverse the whole recent_posts initially or the remaining_recent_posts again at the end *)
+  {
+    u with
+    old_posts = List.rev_append posts_to_move u.old_posts;  (* Correctly merges lists maintaining order *)
+    recent_posts = remaining_recent_posts  (* Already in correct order *)
+  }
 
 let p t = {title="";content="";timestamp=t}
 let mk op rp = {
