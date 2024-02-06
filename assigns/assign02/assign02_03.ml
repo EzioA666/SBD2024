@@ -56,9 +56,26 @@ type user = {
 
 let update_recent (u : user) (time : int) (stale : int) : user =
   let old_posts, recent_posts =
-  List.partition (fun p -> time - p.timestamp >= stale) u.recent_posts
-in
-{ u with recent_posts = recent_posts; old_posts = old_posts @ u.old_posts }
+    List.fold_right (fun post (oldp, recentp) ->
+      if time - post.timestamp >= stale then
+        (post :: oldp, recentp)
+      else
+        (oldp, post :: recentp)
+    ) u.recent_posts ([], u.old_posts)
+  in
+  {
+    username = u.username;
+    email = u.email;
+    time_joined = u.time_joined;
+    is_paid_user = u.is_paid_user;
+    balance = u.balance;
+    next_payment_time = u.next_payment_time;
+    is_paused = u.is_paused;
+    num_followers = u.num_followers;
+    num_likes = u.num_likes;
+    old_posts = old_posts;  
+    recent_posts = recent_posts;
+  }
 
 let p t = {title="";content="";timestamp=t}
 let mk op rp = {
@@ -74,6 +91,8 @@ let mk op rp = {
   old_posts = op;
   recent_posts = rp;
 }
+
+
 
 
 
