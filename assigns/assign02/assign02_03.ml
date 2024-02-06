@@ -55,17 +55,15 @@ type user = {
 }
 
 let update_recent (u : user) (time : int) (stale : int) : user =
-  let rec partition to_move to_keep posts =
-    match posts with
-    | [] -> (List.rev to_move, List.rev to_keep)  (* Ensure both lists are in correct order *)
-    | post :: rest ->
-        if time - post.timestamp >= stale then
-          partition (post :: to_move) to_keep rest
-        else
-          partition to_move (post :: to_keep) rest
+  let rec partition moved remaining = function
+  | [] -> (List.rev moved, remaining)
+  | post :: tail as recent ->
+      if time - post.timestamp >= stale then
+        partition (post :: moved) remaining tail
+      else
+        (List.rev moved, recent)
   in
-  let (posts_to_move, remaining_recent_posts) = partition [] [] u.recent_posts in
-  (* Construct a new user record manually *)
+  let moved_to_old, new_recent_posts = partition [] u.recent_posts u.recent_posts in
   {
     username = u.username;
     email = u.email;
@@ -76,8 +74,8 @@ let update_recent (u : user) (time : int) (stale : int) : user =
     is_paused = u.is_paused;
     num_followers = u.num_followers;
     num_likes = u.num_likes;
-    old_posts = u.old_posts @ posts_to_move;  (* Merge using @ for simplicity *)
-    recent_posts = remaining_recent_posts;
+    old_posts = List.rev_append moved_to_old u.old_posts;  (* Update old_posts *)
+    recent_posts = new_recent_posts;  (* Update recent_posts *)
   }
 
 let p t = {title="";content="";timestamp=t}
