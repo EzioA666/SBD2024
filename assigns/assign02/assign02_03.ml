@@ -55,27 +55,20 @@ type user = {
 }
 
 let update_recent (u : user) (time : int) (stale : int) : user =
-  let rec partition moved remaining = function
-  | [] -> (List.rev moved, remaining)
-  | post :: tail as recent ->
-      if time - post.timestamp >= stale then
-        partition (post :: moved) remaining tail
-      else
-        (List.rev moved, recent)
+  let rec split_by_staleness posts =
+    match posts with
+    | [] -> ([], [])
+    | post :: rest when time - post.timestamp >= stale ->
+        let (older, recent) = split_by_staleness rest in
+        (post :: older, recent)
+    | _ -> ([], posts)
   in
-  let moved_to_old, new_recent_posts = partition [] u.recent_posts u.recent_posts in
+  let (to_move, still_recent) = split_by_staleness u.recent_posts in
+  let new_old_posts = List.rev_append to_move u.old_posts in
   {
-    username = u.username;
-    email = u.email;
-    time_joined = u.time_joined;
-    is_paid_user = u.is_paid_user;
-    balance = u.balance;
-    next_payment_time = u.next_payment_time;
-    is_paused = u.is_paused;
-    num_followers = u.num_followers;
-    num_likes = u.num_likes;
-    old_posts = List.rev_append moved_to_old u.old_posts;  (* Update old_posts *)
-    recent_posts = new_recent_posts;  (* Update recent_posts *)
+    u with
+    old_posts = new_old_posts;
+    recent_posts = still_recent;
   }
 
 let p t = {title="";content="";timestamp=t}
