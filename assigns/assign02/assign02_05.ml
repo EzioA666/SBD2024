@@ -47,5 +47,35 @@ type point = {
 }
 
 let rec all_paths (len : int) (stp : point) (endp : point) : (dir * int) list list =
-  assert false
-  (*TODO*)
+  let move point dir =
+    match dir with
+    | N -> { x = point.x; y = point.y + 1 }
+    | S -> { x = point.x; y = point.y - 1 }
+    | E -> { x = point.x + 1; y = point.y }
+    | W -> { x = point.x - 1; y = point.y }
+  in
+  let add_dir_to_path path dir =
+    match path with
+    | (d, n) :: rest when d = dir -> (d, n + 1) :: rest
+    | _ -> (dir, 1) :: path
+  in
+  if len = 0 then
+    if stp = endp then [[]] else []
+  else
+    let directions = [N; S; E; W] in
+    List.fold_left (fun acc dir ->
+      let next_point = move stp dir in
+      let sub_paths = all_paths (len - 1) next_point endp in
+      List.fold_left (fun acc_sub path ->
+        (add_dir_to_path path dir) :: acc_sub
+      ) acc sub_paths
+    ) [] directions
+  |> List.filter (fun path ->
+       let rec final_position point path =
+         match path with
+         | [] -> point
+         | (dir, steps) :: rest ->
+           final_position (List.init steps (fun _ -> move point dir) |> List.fold_left (fun acc _ -> move acc dir) point) rest
+       in
+       final_position stp (List.rev path) = endp
+     )
