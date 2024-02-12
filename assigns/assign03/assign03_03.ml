@@ -49,4 +49,16 @@ type bexp =
   | Or of bexp * bexp
 
 let eval (v : (string * bool) list) (e : bexp) : bool option =
-  assert false (* TODO *)
+  let rec eval_helper e = match e with
+  | Var x -> List.assoc_opt x v
+  | Not e -> (match eval_helper e with
+              | Some b -> Some (not b)
+              | None -> None)
+  | And (e1, e2) -> (match eval_helper e1, eval_helper e2 with
+                     | Some b1, Some b2 -> Some (b1 && b2)
+                     | _ -> None)
+  | Or (e1, e2) -> (match eval_helper e1, eval_helper e2 with
+                    | Some b1, Some b2 -> Some (b1 || b2)
+                    | _ -> None)
+in
+eval_helper e
