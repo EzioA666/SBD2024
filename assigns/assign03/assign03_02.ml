@@ -42,17 +42,28 @@ type 'a forklist
   | Cons of 'a * 'a forklist
   | Fork of 'a * 'a forklist * 'a forklist
 
-let delay_cons (f : int forklist) : int forklist =
-  let rec delay_cons_helper (f : int forklist) (acc : int list) : int forklist =
+
+let rec delay_cons_helper (f : int forklist) : int forklist =
     match f with
-    | Nil ->
-        List.fold_right (fun x acc -> Cons (x, acc)) acc Nil
+    | Nil -> Nil
     | Cons (x, xs) ->
-        Cons (x, delay_cons_helper xs [])
+      let ys = delay_cons_helper xs in
+      if ys = Nil then Cons (x, Nil) else Fork (x, Nil, ys)
     | Fork (x, lxs, rxs) ->
-        let lxs' = delay_cons_helper lxs [] in
-        let rxs' = delay_cons_helper rxs [] in
-        Fork (x, lxs', rxs')
+      let ys = delay_cons_helper (Fork (x, lxs, rxs)) in
+      if ys = Nil then Cons (x, Nil) else Fork (x, Nil, ys)
+let delay_cons (f : int forklist) : int forklist =
+  let rec aux (f : int forklist) : int forklist =
+    match f with
+    | Nil -> Nil
+    | Cons (x, xs) -> Cons (x, aux xs)
+    | Fork (x, lxs, rxs) ->
+      let ys = delay_cons_helper (Fork (x, lxs, rxs)) in
+      if ys = Nil then Cons (x, Nil) else Fork (x, aux lxs, aux rxs)
   in
-  delay_cons_helper f []
+  aux f
+
+
+
+  
 
