@@ -42,26 +42,18 @@ type 'a forklist
   | Cons of 'a * 'a forklist
   | Fork of 'a * 'a forklist * 'a forklist
 
-
-let rec delay_cons_helper (f : int forklist) : int forklist =
-    match f with
-    | Nil -> Nil
-    | Cons (x, xs) ->
-      let ys = delay_cons_helper xs in
-      if ys = Nil then Cons (x, Nil) else Fork (x, Nil, ys)
-    | Fork (x, lxs, rxs) ->
-      let ys = delay_cons_helper (Fork (x, lxs, rxs)) in
-      if ys = Nil then Cons (x, Nil) else Fork (x, Nil, ys)
 let delay_cons (f : int forklist) : int forklist =
-  let rec aux (f : int forklist) : int forklist =
-    match f with
-    | Nil -> Nil
-    | Cons (x, xs) -> Cons (x, aux xs)
-    | Fork (x, lxs, rxs) ->
-      let ys = delay_cons_helper (Fork (x, lxs, rxs)) in
-      if ys = Nil then Cons (x, Nil) else Fork (x, aux lxs, aux rxs)
-  in
-  aux f
+  let rec insert x = function
+  | Nil -> Cons (x, Nil)
+  | Cons (y, ys) as cons -> if x < y then Cons (x, cons) else Cons (y, insert x ys)
+  | Fork (y, l, r) -> if x < y then Fork (y, insert x l, r) else Fork (y, l, insert x r)
+in
+let rec delay_cons_helper = function
+  | Nil -> Nil
+  | Cons (x, xs) -> insert x (delay_cons_helper xs)
+  | Fork (x, l, r) -> Fork (x, delay_cons_helper l, delay_cons_helper r)
+in
+delay_cons_helper f
 
 
 
