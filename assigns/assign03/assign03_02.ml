@@ -42,7 +42,7 @@ type 'a forklist
   | Cons of 'a * 'a forklist
   | Fork of 'a * 'a forklist * 'a forklist
 
-(*let delay_cons (f : int forklist) : int forklist =
+let delay_cons (f : int forklist) : int forklist =
   let rec delay_cons_helper (f : int forklist) (acc : int list) : int forklist =
     match f with
     | Nil ->
@@ -54,18 +54,5 @@ type 'a forklist
         let rxs' = delay_cons_helper rxs [] in
         Fork (x, lxs', rxs')
   in
-  delay_cons_helper f []*)
-
-  let rec delay_cons f =
-    match f with
-    | Nil -> Nil
-    | Cons (x, xs) -> 
-        (* Handle `Cons` leading to `Fork` by integrating `x` into the `Fork` appropriately *)
-        (match xs with
-         | Fork (y, lxs, rxs) when x < y -> Fork (y, delay_cons (Cons (x, lxs)), rxs)
-         | Fork (y, lxs, rxs) -> Fork (y, lxs, delay_cons (Cons (x, rxs)))
-         | _ -> Cons (x, delay_cons xs))
-    | Fork (x, lxs, rxs) -> 
-        (* Directly apply transformation to `Fork` branches *)
-        Fork (x, delay_cons lxs, delay_cons rxs)
+  delay_cons_helper f []
 
