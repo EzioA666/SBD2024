@@ -116,44 +116,32 @@ type 'a matrix = {
 }
 
 let mkMatrix (rs : 'a list list) : ('a matrix, error) result =
-  let rec check_rows lengths = match lengths with
-  | [] -> true
-  | [x] -> true
-  | x :: y :: xs -> x = y && check_rows (y :: xs)
-in
-match rs with
-| [] -> Error ZeroRows
-| [[]] -> Error ZeroCols
-| _ -> 
-    let row_lengths = List.map List.length rs in
-    if not (check_rows row_lengths) then Error UnevenRows
-    else 
-      let num_rows = List.length rs in
-      let num_cols = List.hd row_lengths in
-      if num_cols = 0 then Error ZeroCols
-      else Ok {num_rows; num_cols; rows = rs}
+  match rs with
+  | [] -> Error ZeroRows
+  | _ when List.exists (fun row -> row = []) rs -> Error ZeroCols
+  | _ ->
+    let lengths = List.map List.length rs in
+    let first_length = List.hd lengths in
+    if List.exists (fun l -> l <> first_length) lengths then Error UnevenRows
+    else Ok {num_rows = List.length rs; num_cols = first_length; rows = rs}
 
 let transpose (m : 'a matrix) : 'a matrix =
-  let rec transpose_helper rows =
-    match rows with
-    | [] | [] :: _ -> []
-    | rows -> 
-      (List.map List.hd rows) :: transpose_helper (List.map List.tl rows)
-  in
-  {num_rows = m.num_cols; num_cols = m.num_rows; rows = transpose_helper m.rows}
+  let rec transpose_helper acc = function
+  | [] | [] :: _ -> List.rev acc
+  | rows ->
+    let heads, tails = List.split (List.map (fun row -> List.hd row, List.tl row) rows) in
+    transpose_helper (heads :: acc) tails
+in
+{num_rows = m.num_cols; num_cols = m.num_rows; rows = transpose_helper [] m.rows}
 
 let multiply (m : float matrix) (n : float matrix) : (float matrix, error) result =
   if m.num_cols <> n.num_rows then Error MulMismatch
-  else 
-    let rec dot_product a b = match (a, b) with
-      | ([], []) -> 0.0
-      | (x :: xs, y :: ys) -> x *. y +. dot_product xs ys
-      | _ -> failwith "Mismatched lengths" (* This should not happen due to checks. *)
+  else
+    let n_transposed = transpose n in
+    let multiply_rows row1 row2 = 
+      List.fold_left2 (fun acc x y -> acc +. x *. y) 0.0 row1 row2
     in
-    let rec multiply_row_by_matrix row matrix =
-      match matrix with
-      | [] -> []
-      | cols :: rest -> dot_product row (List.map List.hd matrix) :: multiply_row_by_matrix row (List.map List.tl matrix)
-    in
-    let rows = List.map (fun row -> multiply_row_by_matrix row (transpose n).rows) m.rows in
+    let rows = List.map (fun row_m ->
+      List.map (fun row_n -> multiply_rows row_m row_n) n_transposed.rows
+    ) m.rows in
     Ok {num_rows = m.num_rows; num_cols = n.num_cols; rows}
