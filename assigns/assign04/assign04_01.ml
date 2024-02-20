@@ -29,4 +29,11 @@
 *)
 
 let apply_cycle (funcs : ('a -> 'a) list) (n : int) (x : 'a) : 'a =
-  assert false (* TODO *)
+  let rec aux funcs n x i =
+    if n <= 0 then x
+    else
+      let func = List.nth funcs i in
+      let next_i = (i + 1) mod List.length funcs in
+      aux funcs (n - 1) (func x) next_i
+  in
+  if n > 0 then aux funcs n x 0 else x
