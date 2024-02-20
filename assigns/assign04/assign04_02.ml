@@ -53,4 +53,27 @@ let walks
     (g : 'a -> 'a -> bool)
     (len : int)
     (paths_starts : (('a -> 'a) * 'a) list) : 'a list =
-  assert false (* TODO *)
+  (* Ensure non-negative length *)
+  let len = max len 0 in
+
+  let rec make_path p x len =
+    if len = 0 then [x]
+    else x :: make_path p (p x) (len - 1)
+  in
+
+  let is_valid g path =
+    match path with
+    | [] -> false (* Empty path is considered invalid *)
+    | _ -> List.for_all2 g path (List.tl path)
+  in
+
+  paths_starts
+  |> List.filter_map (fun (p, start) ->
+       let path = make_path p start len in
+       if is_valid g (start :: path) then
+         Some (List.hd (List.rev path))
+       else
+         None
+     )
+
+
