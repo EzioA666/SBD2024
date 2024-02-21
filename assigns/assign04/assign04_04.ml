@@ -83,15 +83,17 @@ let rec map2 (f : 'a -> 'b -> 'c) (l : 'a list) (r : 'b list) : 'c list =
   | ([], _) | (_, []) -> []
   | (x::xs, y::ys) -> f x y :: map2 f xs ys
 
+let rec take n l =
+    match (n, l) with
+    | (0, _) | (_, []) -> []
+    | (n, x::xs) -> x :: take (n - 1) xs
+
 let consecutives (len : int) (l : 'a list) : 'a list list =
-  let rec aux acc l =
-    match l with
-    | [] -> List.rev acc
-    | _ -> 
-      if List.length l < len then List.rev acc
-      else aux ((List.fold_left (fun a x -> if List.length a < len then x :: a else a) [] l) :: acc) (List.tl l)
+  let rec aux len l acc =
+    if List.length l < len then acc
+    else aux len (List.tl l) (take len l :: acc)
   in
-  aux [] l
+  List.rev (aux len l [])
 
 let list_conv
     (f : 'a list -> 'b list -> 'c)
