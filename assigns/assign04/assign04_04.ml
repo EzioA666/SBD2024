@@ -1,3 +1,4 @@
+
 (* List Convolution and Multiplying Polynomials
 
    This problem has three parts:
@@ -80,20 +81,23 @@
 
 let rec map2 (f : 'a -> 'b -> 'c) (l : 'a list) (r : 'b list) : 'c list =
   match (l, r) with
-  | ([], _) | (_, []) -> []
-  | (x::xs, y::ys) -> f x y :: map2 f xs ys
+  | [], _ | _, [] -> []
+  | h1::t1, h2::t2 -> (f h1 h2) :: map2 f t1 t2
+
+(* Define take function needed for consecutives *)
+let rec take n l = match n, l with
+  | _, [] | 0, _ -> []
+  | n, h::t -> h :: take (n-1) t
 
 let consecutives (len : int) (l : 'a list) : 'a list list =
-  let rec take n l acc = match (n, l) with
-  | (0, _) | (_, []) -> List.rev acc
-  | (n, x::xs) -> take (n-1) xs (x::acc)
-in
-let rec slide acc l = match l with
-  | [] -> List.rev acc
-  | _ as lst -> if List.length lst < len then List.rev (lst::acc)
-                else slide ((take len lst [])::acc) (List.tl lst)
-in
-if len <= 0 then [[]] else slide [] l
+  let rec take n l = match n, l with
+    | 0, _ | _, [] -> []
+    | n, h::t -> h :: take (n-1) t
+  in
+  let rec aux acc l =
+    if List.length l < len then acc
+    else aux ((take len l) :: acc) (List.tl l)
+  in List.rev (aux [] l)
 
 let list_conv
     (f : 'a list -> 'b list -> 'c)
@@ -102,11 +106,13 @@ let list_conv
   List.map (f l) (consecutives (List.length l) r)
 
 let poly_mult_helper (u : int list) (v : int list) : int =
-  List.fold_left2 (fun acc x y -> acc + x * y) 0 u v
-
+  let multiplied = map2 (fun x y -> x * y) u v in
+  List.fold_left (fun acc x -> acc + x) 0 multiplied
 let poly_mult (p : int list) (q : int list) : int list =
   let padding = List.init (List.length p - 1) (fun _ -> 0) in
   let padded_q = padding @ q @ padding in
   list_conv poly_mult_helper p padded_q
 
 
+let _ = assert (poly_mult [1;2;3] [4;5] = [4;13;22;15])
+let _ = assert (poly_mult [4;5] [1;2;3] = [4;13;22;15])
