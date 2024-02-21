@@ -77,4 +77,15 @@ let foo i j =
 (* let _ = assert (foo 1 10 = List.map (fun k -> k + k) (range 1 10)) *)
 
 let pythagorean_triples (n : int) : (int * int * int) list =
-  assert false (* TODO *)
+  let rec range i j = if i >= j then [] else i :: range (i + 1) j in
+
+  let triples = 
+    for_loop (range 1 n) (fun i ->
+      for_loop (range (i + 1) n) (fun j ->
+        for_loop (range (j + 1) n) (fun k ->
+          if i * i + j * j = k * k then [(i, j, k)] else []
+        )
+      )
+    )
+  in
+  triples

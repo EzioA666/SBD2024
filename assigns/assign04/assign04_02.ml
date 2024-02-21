@@ -53,27 +53,35 @@ let walks
     (g : 'a -> 'a -> bool)
     (len : int)
     (paths_starts : (('a -> 'a) * 'a) list) : 'a list =
-  (* Ensure non-negative length *)
-  let len = max len 0 in
+    let rec generate_path path_gen path_start =
+      if len <= 0 then [path_start]
+      else path_start :: generate_path path_gen (path_gen path_start)
+    in
+    let valid_paths path_gen path_start =
+      let path = generate_path path_gen path_start in
+      let rec is_valid = function
+        | [] -> true
+        | [x] -> true
+        | x :: y :: xs -> g x y && is_valid (y :: xs)
+      in
+      is_valid path
+    in
+    List.map (fun (path_gen, path_start) ->
+      List.filter (valid_paths path_gen) (generate_path path_gen path_start))
+      paths_starts
+    |> List.concat
 
-  let rec make_path p x len =
-    if len = 0 then [x]
-    else x :: make_path p (p x) (len - 1)
-  in
-
-  let is_valid g path =
-    match path with
-    | [] -> false (* Empty path is considered invalid *)
-    | _ -> List.for_all2 g path (List.tl path)
-  in
-
-  paths_starts
-  |> List.filter_map (fun (p, start) ->
-       let path = make_path p start len in
-       if is_valid g (start :: path) then
-         Some (List.hd (List.rev path))
-       else
-         None
-     )
-
-
+    let g1 (i : int) (j: int) = i < j && i <= 10 && j <= 10
+    let g2 (i : int) (j: int) = i <= 10 && j <= 10
+    
+    let p1 i = i + 1
+    let p2 i = i - 1
+    let p3 i = i + 2
+    
+    let _ = assert (walks g1 0 [(p1, 0); (p2, 0); (p3, 0)] = [0;0;0])
+    let _ = assert (walks g1 1 [(p1, 0); (p2, 0); (p3, 0)] = [1;2])
+    let _ = assert (walks g1 3 [(p1, 0); (p2, 0); (p3, 0)] = [3;6])
+    let _ = assert (walks g1 6 [(p1, 0); (p2, 0); (p3, 0)] = [6])
+    let _ = assert (walks g2 2 [(p1, 3); (p2, 5); (p3, 3)] = [5; 3; 7])
+    let _ = assert (walks g2 4 [(p1, -10); (p2, -20); (p3, 8)] = [-6; -24])
+    let _ = assert (walks g2 6 [(p1, 5); (p2, 11); (p3, -10)] = [2])
