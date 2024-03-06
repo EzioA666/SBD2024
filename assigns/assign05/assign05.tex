@@ -89,6 +89,39 @@ otherwise mark) any sentences which can be derived in multiple ways.
 \end{enumerate}
 
 \begin{solution}
+\indent
+    \begin{itemize}
+        \item[A] \indent
+            \begin{lstlisting}
+                <START> => <a> | <b> | <c>
+                        => A<b>
+                        => AAB<b>
+                        => AABAB<c>
+                        => AABABC
+            \end{lstlisting}
+
+                \begin{lstlisting}
+                    <START> => <a> | <b> | <c>
+                            => AA<b>
+                            => AAB<b>
+                            => AABAB<c>
+                            => AABABC
+                \end{lstlisting}
+        \item[B] 
+            \begin{itemize}
+              \item \texttt{AABAB}
+              \item \texttt{AABAC}
+              \item \texttt{AAABB}
+              \item \texttt{AAABC}
+              \item \texttt{ABABB}
+              \item \texttt{ABABC}
+              \item \texttt{ABBAB}
+              \item \texttt{ABBAC}
+              \item \texttt{ABBBB}
+              \item \texttt{ABBBC}
+           \end{itemize}
+            
+    \end{itemize}
 \end{solution}
 
 \pagebreak
@@ -127,12 +160,20 @@ for \texttt{<var>} on nonterminal symbols appearing in the same
 position.
 
 \begin{solution}
+\indent
+    \begin{lstlisting}
+        <PROG> => <stmts>
+               => <stmt> <stmts>
+               => let <var> = <val> <stmts>
+               => let x = fun <var> -> <val> <stmts>
+               => let x = fun x -> x <stmt>
+               => let x = fun x -> x let <var> = <val>
+               => let x = fun x -> x let x' = (<var> <var>)
+               => let x = fun x -> x let x' = (x x)
+    \end{lstlisting}
 \end{solution}
 
-\pagebreak
-\begin{solution}
-(Continued)
-\end{solution}
+
 
 \pagebreak
 \section{Integer Literals}
@@ -157,6 +198,15 @@ represents positive integers, and \texttt{<nint>} represents negative
 integers.
 
 \begin{solution}
+\indent
+    \begin{lstlisting}
+        <INT>    ::= 0 | <pint> | <nint>
+        <pdigit> ::= 1|2|3|4|5|6|7|8|9
+        <digit>  ::= 0|<pdigit>
+        <digits> ::= <digit> | <digit> <digits>
+        <pint>   ::= <pdigit> | <pdigit> <digits>
+        <nint>   ::= -<pint>
+    \end{lstlisting}
 \end{solution}
 
 \end{document}
