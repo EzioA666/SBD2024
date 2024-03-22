@@ -105,7 +105,24 @@ Write down a regular expression for the set of sentences of the above
 grammar.
 
 \end{enumerate}
-
+\begin{mdframed}
+    \begin{solution}
+        \begin{itemize}
+        \indent
+            \item [A.]
+                AAABBBB
+            \item[B.]
+             \indent
+                \begin{grammar}
+                    <a> ::= \lit*{A}<a> \alt \lit*{A}\lit*{A}<b>
+                    
+                    <b> ::= \lit*B<b> \alt \lit*B\lit*B
+                \end{grammar}
+            \item[C.]
+                $a^{*}bb^{*}$
+        \end{itemize}
+    \end{solution}
+\end{mdframed}
 
 \pagebreak
 \section{A More Interesting Ambiguous Grammar}
@@ -146,6 +163,11 @@ LET fib = FUN x =>
   / 1 -> 1
   / n -> fib$\text{\textvisiblespace}$(n - 1) + fib$\text{\textvisiblespace}$(n - 2)
 \end{lstlisting}
+\begin{mdframed}
+    \begin{solution}
+        \textbf{TRUE}
+    \end{solution}
+\end{mdframed}
 \pagebreak
 \item Give a derivation for the following program.
 \begin{lstlisting}
@@ -178,28 +200,92 @@ replace the EBNF syntax with a corresponding sentential form, e.g.,
 CASE <expr> OF / <pat> -> <expr> / <pat> -> <expr>
 \end{lstlisting}
 \end{itemize}
+\begin{solution}
+    \begin{mdframed}
+    \begin{lstlisting}
+        <prgm>
+        => LET <idnt> = <expr>
+        => LET Z = FUN x => CASE <term> OF /<pat> -> <expr> /<pat> - <expr>
+        => LET Z = FUN x => CASE x OF /0 -> 1 /* -> 0
+    \end{lstlisting}
+\end{mdframed}
+\end{solution}
+
 \pagebreak
 \item
 Rewrite the production rule for \texttt{<term>} using standard BNF
 syntax.  You may not introduce new nonterminal symbols.
+\begin{mdframed}
+    \begin{solution}
+        \begin{grammar}
+            <term> ::= <idnt> \alt <num> \alt (<expr>) \alt <term> \lit*{\textvisiblespace} <term>
+        \end{grammar}
+    \end{solution}
+\end{mdframed}
 \item
 Demonstrate that this grammar is ambiguous by finding a sentence which
 has multiple derivations.  You do not need to give the derivations.
+\begin{mdframed}
+\begin{solution}
+
+                \lit*a \lit*{\textvisiblespace} \lit*{(b)} \lit*{\textvisiblespace} \lit*c
+\end{solution}
+\end{mdframed}
 \item
 Change the above grammar by introducing a single terminal symbol so
 that it is no longer ambiguous.  You don't need to reproduce the
 entire grammar, just give the production rule where you put the
 terminal symbol.
 \end{enumerate}
+\begin{mdframed}
+    \begin{solution}
+        \begin{grammar}
+            <term> ::= <idnt> \alt <num> \alt (<expr>) \alt <idnt> \lit*{\textvisiblespace} <term> \alt <num> \lit*{\textvisiblespace} <term> \alt (<expr>) \lit*{\textvisiblespace} <term>
+        \end{grammar}
+    \end{solution}
+\end{mdframed}
+
+
+
 
 
 \pagebreak
 \section{Regular Grammars and Expressions}
 \begin{enumerate}
 \item Write down a regular expression which recognizes all binary strings without a contiguous subsequence of \texttt{1}s of length $3$, e.g., $\epsilon$ and \texttt{001} and \texttt{00110001001000001} but not \texttt{111} or \texttt{0011000101111001}.
+
+\begin{mdframed}
+    \begin{solution}
+        \[(0|10|110)^{*} ( \epsilon|1|11)\]
+    \end{solution}
+\end{mdframed}
+
 \item Write down a right linear regular grammar which recognizes all binary strings with an odd number of zeros and an odd number of ones, e.g., \texttt{01} and \texttt{001011} but not \texttt{001100010} or \texttt{0011} (\textit{Note.} It would be a fair amount more difficult to give a regular expression, even though the two representations are equivalent in expressivity).
+\begin{mdframed}
+    \begin{solution}
+    \begin{lstlisting}
+        S := 0A | 1B
+        A := 0S | 1C | 1
+        B := 1S | 0D | 0
+        C := 1A | 0E | 0
+        D := 0B | 1F | 1
+        E := 1C | 0S
+        F := 0D | 1S
+    \end{lstlisting}
+    \end{solution}
+\end{mdframed}
+
+
 \item Write down a regular expression which recognizes all strings of characters without whitespace or parentheses which represent (possibly empty) \texttt{int list}'s of \texttt{0}'s in OCaml, e.g., \texttt{0::0::[]} and \texttt{{0::[0;0;0]}} and \texttt{[0;]} (note the optional trailing semicolon) and \texttt{[]}.
 \end{enumerate}
+\begin{mdframed}
+    \begin{solution}
+        \begin{lstlisting}
+            
+            (0(::0)*(::(\[0(;0)*(\;)?\])?)?(\;)?|(\[0(;0)*(\;)?\]))
+        \end{lstlisting}
+    \end{solution}
+\end{mdframed}
 
 
 \end{document}
