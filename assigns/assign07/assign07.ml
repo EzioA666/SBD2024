@@ -106,7 +106,21 @@ type token
   | EOFT            (* end of file *)
 
 let next_token (cs : char list) : (token * char list) option =
-  assert false (* TODO *)
+  let cs = snd (span is_blank cs) in  (* Remove leading whitespace *)
+  match cs with
+  | [] -> Some (EOFT, [])
+  | '<' :: _ -> 
+    (match span (fun c -> c <> '>') (List.tl cs) with
+     | _, [] -> None  (* Malformed: Missing closing '>' *)
+     | ntm, '>' :: rest -> Some (NtmT (implode ntm), snd (span is_blank rest))  (* Correct nonterminal extraction *)
+     | _ -> None)  (* Incorrect nonterminal format *)
+  | ':' :: ':' :: '=' :: rest -> Some (EqT, snd (span is_blank rest))  (* Correct EqT extraction *)
+  | '.' :: rest -> Some (PdT, rest)  (* Single dot recognition *)
+  | _ ->
+    let (tm, rest) = span is_alphanum cs in
+    if List.length tm > 0 then Some (TmT (implode tm), snd (span is_blank rest)) else None
+
+
 
 let tokenize (s : string) : (token list) option =
   let rec go cs =
@@ -120,8 +134,9 @@ let tokenize (s : string) : (token list) option =
       | Some ts -> Some (t :: ts)
   in go (explode s)
 
-(*
-let _ = assert(next_token (explode "\n ::= q[qpo;laksjd") = Some (EqT, explode " q[qpo;laksjd"))
+
+
+(*let _ = assert(next_token (explode "\n ::= q[qpo;laksjd") = Some (EqT, explode " q[qpo;laksjd"))
 let _ = assert(next_token (explode "<asdf>   ...") = Some (NtmT "asdf", explode "   ..."))
 let _ = assert(next_token (explode "   term  term ") = Some (TmT "term", explode "  term "))
 let _ = assert(next_token (explode "...") = Some (PdT, explode ".."))
@@ -130,8 +145,8 @@ let _ = assert(next_token (explode "<not-good>") = None)
 
 let _ = assert(tokenize "..::=" = Some [PdT;PdT;EqT])
 let _ = assert(tokenize "<a> ::= aab a<b>a." = Some [NtmT "a"; EqT; TmT "aab"; TmT "a"; NtmT "b"; TmT "a"; PdT])
-let _ = assert(tokenize "<a> ::= aab a<no-good>a." = None)
-*)
+let _ = assert(tokenize "<a> ::= aab a<no-good>a." = None)*)
+
 
 (* END OF PROBLEM 1 *)
 
@@ -177,19 +192,25 @@ type rule = string * sentform
 type grammar = rule list
 
 let expand_leftmost ((nt, sf) : rule) (s : sentform) : sentform =
-  assert false (* TODO *)
+  let rec replace_first sf_lst acc =
+    match sf_lst with
+    | [] -> List.rev acc  (* If end of list is reached without finding nt, return original sentform *)
+    | NT x :: xs when x = nt -> List.rev acc @ sf @ xs  (* Replace leftmost NT that matches nt with sf *)
+    | x :: xs -> replace_first xs (x :: acc)  (* Continue searching *)
+  in
+  replace_first s []
 
 (* <a> ::= a<a>. *)
 let r = "a", [T "a"; NT "a"]
 
-(*
+
 (* <a> --> a<a> *)
 let _ = assert (expand_leftmost r [NT "a"] = [T "a"; NT "a"])
 (* <a> --> a<a> --> aa<a> *)
 let _ = assert (expand_leftmost r (expand_leftmost r [NT "a"]) = [T "a"; T "a"; NT "a"])
 (* <a>b<a> --> a<a>b<a> *)
 let _ = assert (expand_leftmost r [NT "a"; T "b"; NT "a"] = [T "a"; NT "a"; T "b"; NT "a"])
-*)
+
 
 (* END OF PROBLEM 2 *)
 
@@ -217,22 +238,48 @@ let _ = assert (expand_leftmost r [NT "a"; T "b"; NT "a"] = [T "a"; NT "a"; T "b
 *)
 
 let rec parse_sentform (ts : token list) : (sentform * token list) option =
-  assert false (* TODO *)
+  let rec aux ts acc =
+    match ts with
+    | TmT str :: rest -> aux rest (T str :: acc)
+    | NtmT str :: rest -> aux rest (NT str :: acc)
+    | _ -> (List.rev acc, ts)  (* Reverse the accumulated list since we built it in reverse order *)
+  in
+  match ts with
+  | (TmT _ | NtmT _) :: _ -> Some (aux ts [])
+  | _ -> None  (* Return None if the list doesn't start with a symbol *)
 
 let parse_rule (ts : token list) : (rule * token list) option =
-  assert false (* TODO *)
+  match ts with
+  | NtmT nt :: EqT :: rest ->  (* Check for a rule start pattern: nonterminal followed by ::= *)
+    (match parse_sentform rest with  (* Correct function name *)
+    | Some (sf, PdT :: rest_tokens) -> Some ((nt, sf), rest_tokens)  (* Ensure rule ends with a period *)
+    | _ -> None)  (* Fail if there's no valid sentential form or missing end period *)
+  | _ -> None  (* Return None if the pattern does not match a rule start *)
+
 
 let rec parse_grammar (ts : token list) : grammar * token list =
-  assert false (* TODO *)
+  match parse_rule ts with
+  | Some (rule, rest) ->
+    let (rules, final_tokens) = parse_grammar rest in
+    (rule :: rules, final_tokens)  (* Successfully parsed a rule, continue parsing *)
+  | None -> ([], ts)  (* No more valid rules or not a valid rule to begin with *)
 
-let parse_and_check (s : string) : grammar option =
+(*let parse_and_check (s : string) : grammar option =
   match tokenize s with
   | None -> None
   | Some ts ->
     let (g, rest) = parse_grammar ts in
     if List.is_empty rest
     then Some g
-    else None
+    else None*)
+
+let parse_and_check (s : string) : grammar option =
+      match tokenize s with
+      | None -> None
+      | Some ts ->
+        let (g, rest) = parse_grammar ts in
+        if rest = [] then Some g  (* Use direct comparison to check if the list is empty *)
+        else None
 
 (*
 let _ = assert (parse_sentform [NtmT "a"; TmT "b"; NtmT "a"; PdT; PdT; PdT] = Some ([NT "a"; T "b"; NT "a"], [PdT; PdT; PdT]))
@@ -271,9 +318,9 @@ let simple_test_missing_period = "
   <c> ::= g .
 "
 
-(*
+
 let _ = assert (parse_and_check simple_test = Some simple_test_out)
 let _ = assert (parse_and_check simple_test_missing_period = None)
-*)
+
 
 (* END OF PROBLEM 3 *)
