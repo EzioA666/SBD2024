@@ -283,7 +283,19 @@ let parse_symbol : symbol parser = (* TODO *)
 
 *)
 let parse_symbol_complex : symbol_complex parser =
-  assert false
+  let parse_empty = (str "EMPTY" >> ws) >|= fun _ -> Sym (T "") in
+  let parse_complex enclosed_by constructor =
+    let* _ = char enclosed_by in
+    let* symbols = many (parse_symbol >>= fun s ->
+                          many (ws >> char '|' >> ws >> parse_symbol) >|= fun ss -> s :: ss) >>= fun symbol_lists ->
+                   many (ws >> char '|' >> ws >> many1 parse_symbol) >|= fun more_lists ->
+                   List.flatten (symbol_lists @ more_lists) in
+    let* _ = char (if enclosed_by = '{' then '}' else ']') >> ws in
+    pure (constructor [symbols])
+  in
+  let parse_rep = parse_complex '{' (fun s -> Rep s) in
+  let parse_opt = parse_complex '[' (fun s -> Opt s) in
+  parse_rep <|> parse_opt <|> (parse_symbol >|= fun s -> Sym s) <|> parse_empty
 
 (* A sentential form is given by the following grammar:
 
@@ -298,7 +310,8 @@ let parse_symbol_complex : symbol_complex parser =
 
 *)
 let parse_sentform : sentform parser = (* TODO *)
-  assert false
+  let parse_empty_form = str "EMPTY" >> ws >| [] in
+  many1 (parse_symbol_complex << ws) <|> parse_empty_form
 
 (* A rule is given by the following grammar:
 
@@ -313,7 +326,18 @@ let parse_sentform : sentform parser = (* TODO *)
 
 *)
 let parse_rule : rule list parser = (* TODO *)
-  assert false
+  keyword "RULE" >>
+  parse_nonterm >>= fun nt ->
+  str "::=" >> ws >>
+  let parse_alt = 
+    let* first_alt = parse_sentform in
+    many (char '|' >> ws >> parse_sentform) >|= fun rest_alts ->
+    first_alt :: rest_alts
+  in
+  parse_alt >>= fun alts ->
+  match nt with
+  | NT id -> pure (List.map (fun alt -> (id, alt)) alts)
+  | _ -> fail (* Nonterminal identifiers are expected here, fail otherwise *)
 
 (* A grammar is given by the following grammar:
 
@@ -323,7 +347,11 @@ let parse_rule : rule list parser = (* TODO *)
    grammar, but you SHOULD consume whitespace and after a grammar.
 *)
 let parse_grammar : grammar parser = (* TODO *)
-  assert false
+  let* _ = keyword "BEGIN" in
+  let* gid = parse_g_ident in
+  let* rules = many (ws >> parse_rule >>= fun r -> ws >> pure r) in
+  let* _ = keyword "END" in
+  pure (gid, List.concat rules)
 
 (* A collection grammars is given by the following grammar:
 
@@ -334,9 +362,9 @@ let parse_grammar : grammar parser = (* TODO *)
 
 *)
 let parse_grammars : grammars parser = (* TODO *)
-  assert false
+  ws >> 
+  many (parse_grammar >>= fun g -> ws >> pure g)
 
-(* UNCOMMENT AS YOU COMPLETE THE ASSIGNMENT
 (* TEST CASES *)
 
 (* parse_term *)
@@ -628,4 +656,4 @@ let out = Some
 let _ = assert (test = out)
 
 (* END OF TEST CASES *)
-*)
+
