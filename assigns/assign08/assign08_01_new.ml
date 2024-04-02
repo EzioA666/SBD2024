@@ -186,7 +186,8 @@ type grammars = grammar list
    after a grammar identifier.
 *)
 let parse_g_ident : string parser = (* TODO *)
-  assert false
+  let* first = many1 (satisfy (fun c -> 'A' <= c && c <= 'Z')) in
+  pure (implode first)
 
 (* A terminal symbol is ANY sequence of characters between two single
    quotes, e.g.,
@@ -201,7 +202,15 @@ let parse_g_ident : string parser = (* TODO *)
 
 *)
 let parse_term : symbol parser = (* TODO *)
-  assert false
+    let rec collect_chars acc = function
+    | '\'' :: cs -> Some (implode (List.rev acc), cs)  (* End of term, return collected chars *)
+    | c :: cs -> collect_chars (c :: acc) cs           (* Collect chars *)
+    | [] -> None  (* Unexpected end of input *)
+  in
+  let* _ = char '\'' in  (* Match opening quote *)
+  let* chars = bind (fun cs -> collect_chars [] cs) pure in  (* Collect characters until closing quote *)
+  let* _ = char '\'' in  (* Ensure closing quote *)
+  pure (T chars)  (* Return as terminal symbol *)
 
 (* A nonterminal symbols is given by the following grammar:
 
@@ -223,7 +232,28 @@ let parse_term : symbol parser = (* TODO *)
 
 *)
 let parse_nonterm : symbol parser = (* TODO *)
-  assert false
+  let g_ident_with_dot = 
+    let* gi = many1 (satisfy (fun c -> 'A' <= c && c <= 'Z')) in
+    let* _ = char '.' in
+    pure (implode gi)
+  in
+  let nonterm_id = 
+    let* start = many1 (satisfy (fun c -> 'a' <= c && c <= 'z')) in
+    let rec dash_lower acc = 
+      match acc with
+      | '-' :: cs -> (let* next = satisfy (fun c -> 'a' <= c && c <= 'z') in dash_lower (next :: acc))
+      | _ -> pure (implode (List.rev acc))
+    in
+    let* mid_end = optional (char '-' >>= fun _ -> dash_lower []) in
+    pure (implode start ^ Option.value ~default:"" mid_end)
+  in
+  let* gi = optional g_ident_with_dot in
+  let* _ = char '<' in
+  let* id = nonterm_id in
+  let* _ = char '>' in
+  match gi with
+  | Some g -> pure (NTRef (g, id))  (* Reference to nonterminal in another grammar *)
+  | None -> pure (NT id)            (* Local nonterminal *)
 
 (* `parse_symbol` parses either a terminal, a nonterminal symbol or a
    nonterminal reference.
@@ -235,7 +265,7 @@ let parse_nonterm : symbol parser = (* TODO *)
 
 *)
 let parse_symbol : symbol parser = (* TODO *)
-  assert false
+  parse_term <|> parse_nonterm
 
 (* A complex symbol is given by the following grammar:
 
