@@ -235,6 +235,8 @@ type command
   | Sub
   | Mul
   | Div
+  | Store (*new*)
+  | Recall (*new*)
 
 (* Parsing floats
 
@@ -327,6 +329,8 @@ let parse_command : command parser = (* TODO *)
     (keyword "div" >| Div) <|>
     (keyword "pop" >| Pop) <|>
     (keyword "quit" >| Quit) <|>
+    (keyword "store" >| Store) <|>  (* New *)
+    (keyword "recall" >| Recall) <|>  (* New *)
     (parse_float << ws >|= fun x -> Push x)
   in ws >> p
 
@@ -382,14 +386,17 @@ let _ = assert (test = out)
 *)
 let run_command (cmd : command) (stk : float list) : float list = (* TODO *)
   match cmd, stk with
-  | Quit, _ -> []
-  | Push x, stk -> x :: stk
-  | Pop, x :: rest -> rest
-  | Add, x :: y :: rest -> x +. y :: rest
-  | Sub, x :: y :: rest -> x -. y :: rest
-  | Mul, x :: y :: rest -> x *. y :: rest
-  | Div, x :: y :: rest -> x /. y :: rest
-  | _ -> stk
+  | Quit, _ -> stk  (* No operational change, just a placeholder *)
+  | Push x, _ -> x :: stk  (* Correct usage: Pushing a float onto the stack *)
+  | Pop, x :: xs -> if List.length xs > 1 then List.tl xs else [List.hd xs]  (* Adjusts for memory register *)
+  | Add, x :: y :: xs -> (y +. x) :: xs
+  | Sub, x :: y :: xs -> (y -. x) :: xs
+  | Mul, x :: y :: xs -> (y *. x) :: xs
+  | Div, x :: y :: xs when x <> 0. -> (y /. x) :: xs
+  | Div, _ -> stk  (* Div by 0 or insufficient stack size, no change *)
+  | Store, x :: y :: xs -> y :: x :: xs  (* Swaps top with "memory register" *)
+  | Recall, x :: xs -> x :: x :: xs  (* Duplicates "memory register" to top *)
+  | _, _ -> stk  (* For any other cases, including insufficient stack *)
 
 (* TEST CASES *)
 
@@ -433,4 +440,4 @@ let rec repl stk : unit =
     print_endline "Could not parse. Try again." ;
     continue stk
 
-(* let main = repl [] *)
+ let main = repl [] 
