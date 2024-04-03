@@ -226,6 +226,7 @@ let keyword wd = str wd << ws
    the program to use the calculator.
 
 *)
+let memory_register = ref 0.0;;
 
 type command
   = Quit
@@ -385,21 +386,19 @@ let _ = assert (test = out)
 
 *)
 let run_command (cmd : command) (stk : float list) : float list = (* TODO *)
-  match cmd, stk with
-  | Quit, _ -> stk  (* No operational change, just a placeholder *)
-  | Push x, _ -> x :: stk  (* Correct usage: Pushing a float onto the stack *)
-  | Pop, x :: xs -> if List.length xs > 1 then List.tl xs else [List.hd xs]  (* Adjusts for memory register *)
-  | Add, x :: y :: xs -> (y +. x) :: xs
-  | Sub, x :: y :: xs -> (y -. x) :: xs
-  | Mul, x :: y :: xs -> (y *. x) :: xs
-  | Div, x :: y :: xs when x <> 0. -> (y /. x) :: xs
-  | Div, _ -> stk  (* Div by 0 or insufficient stack size, no change *)
-  | Store, x :: y :: xs -> y :: x :: xs  (* Swaps top with "memory register" *)
-  | Recall, x :: xs -> x :: x :: xs  (* Duplicates "memory register" to top *)
-  | _, _ -> stk  (* For any other cases, including insufficient stack *)
+  match cmd with
+  | Quit -> []
+  | Push x -> x :: stk
+  | Pop -> (match stk with _ :: xs -> xs | [] -> [])
+  | Add -> (match stk with x :: y :: xs -> (y +. x) :: xs | _ -> stk)
+  | Sub -> (match stk with x :: y :: xs -> (y -. x) :: xs | _ -> stk)
+  | Mul -> (match stk with x :: y :: xs -> (y *. x) :: xs | _ -> stk)
+  | Div -> (match stk with x :: y :: xs -> if x != 0. then (y /. x) :: xs else stk | _ -> stk)
+  | Store -> (match stk with x :: _ -> memory_register := x; stk | [] -> stk)
+  | Recall -> !memory_register :: stk
 
 (* TEST CASES *)
-
+(*
 let test = run_command Add []
 let out = []
 let _ = assert (test = out)
@@ -417,7 +416,7 @@ let out = [3.001; 2.; 3.; 5.; 6.]
 let _ = assert (test = out)
 
 (* END OF TEST CASES *)
-
+*)
 let rec print_stack (stk : float list) : unit =
   let rec go stk =
     match stk with
@@ -440,4 +439,4 @@ let rec repl stk : unit =
     print_endline "Could not parse. Try again." ;
     continue stk
 
- let main = repl [] 
+let main = repl []

@@ -245,7 +245,7 @@ fun input ->
   match input with
   | '<' :: cs -> parse_id [] cs
   | _ -> None
-  
+
 (* `parse_symbol` parses either a terminal, a nonterminal symbol or a
    nonterminal reference.
 
@@ -255,8 +255,16 @@ fun input ->
    after symbols.
 
 *)
+let parse_ntref : symbol parser =
+  fun input ->
+    match parse_g_ident input with
+    | Some (g_id, '.' :: rest) ->  (* Correctly applying parse_g_ident and checking for a dot *)
+        (match parse_nonterm rest with  (* Applying parse_nonterm to the rest of the input *)
+         | Some (NT id, rest) -> Some (NTRef (g_id, id), rest)  (* Constructing NTRef if successful *)
+         | _ -> None)
+    | _ -> None
 let parse_symbol : symbol parser = (* TODO *)
-  parse_term <|> parse_nonterm
+  parse_term <|> parse_nonterm <|> parse_ntref
 
 (* A complex symbol is given by the following grammar:
 
@@ -273,20 +281,47 @@ let parse_symbol : symbol parser = (* TODO *)
    SHOULD consume whitespace after.
 
 *)
+
+let parse_empty = (str "EMPTY" >> ws) >|= fun _ -> []
+
+let parse_symbol_with_ws : symbol list parser = 
+  many (parse_symbol << ws)
+
+(* Parses a list of symbol lists, accounting for alternatives separated by '|' *)
+let parse_alt : symbol list list parser = 
+  let parse_symbols_alt = parse_symbol_with_ws <|> parse_empty in
+  let separator = char '|' >> ws in
+  let rec aux acc = function
+    | [] -> Some (List.rev acc, [])  (* Reverse the accumulated lists for correct order *)
+    | cs -> 
+      match parse_symbols_alt cs with
+      | Some (syms, rest) -> 
+        (match separator rest with
+         | Some (_, after) -> aux (syms :: acc) after  (* Found separator, continue parsing *)
+         | None -> Some (List.rev (syms :: acc), rest))  (* No separator, end of input *)
+      | None -> Some (List.rev acc, cs)  (* No symbols found, return accumulated lists *)
+  in fun cs -> aux [] cs
+
+let parse_complex enclosed_by constructor : symbol_complex parser = 
+  let opening = char enclosed_by in
+  let closing = char (if enclosed_by = '{' then '}' else ']') >> ws in
+  fun input ->
+    match opening input with
+    | Some (_, rest) -> 
+      (match parse_alt rest with
+       | Some (alts, rest') -> 
+         (match closing rest' with
+          | Some (_, after) -> Some (constructor alts, after)
+          | None -> None)  (* Failed to find closing bracket *)
+       | None -> None)  (* Failed to parse alternatives *)
+    | None -> None  (* Opening character not found *)
+
 let parse_symbol_complex : symbol_complex parser =
-  let parse_empty = (str "EMPTY" >> ws) >|= fun _ -> Sym (T "") in
-  let parse_complex enclosed_by constructor =
-    let* _ = char enclosed_by in
-    let* symbols = many (parse_symbol >>= fun s ->
-                          many (ws >> char '|' >> ws >> parse_symbol) >|= fun ss -> s :: ss) >>= fun symbol_lists ->
-                   many (ws >> char '|' >> ws >> many1 parse_symbol) >|= fun more_lists ->
-                   List.flatten (symbol_lists @ more_lists) in
-    let* _ = char (if enclosed_by = '{' then '}' else ']') >> ws in
-    pure (constructor [symbols])
-  in
-  let parse_rep = parse_complex '{' (fun s -> Rep s) in
-  let parse_opt = parse_complex '[' (fun s -> Opt s) in
-  parse_rep <|> parse_opt <|> (parse_symbol >|= fun s -> Sym s) <|> parse_empty
+  parse_complex '{' (fun alts -> Rep alts)
+  <|> parse_complex '[' (fun alts -> Opt alts)
+  <|> (parse_symbol >|= fun s -> Sym s)
+  <|> (parse_empty >|= fun _ -> Sym (T ""))
+      
 
 (* A sentential form is given by the following grammar:
 
