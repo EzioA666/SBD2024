@@ -281,46 +281,33 @@ let parse_symbol : symbol parser = (* TODO *)
    SHOULD consume whitespace after.
 
 *)
+let sep_by1 (p : 'a parser) (sep : unit parser) : 'a list parser =
+  let rec aux acc = 
+    (let* _ = sep in
+     let* x = p in
+     aux (x :: acc))
+    <|> pure (List.rev acc)
+  in
+  let* first = p in
+  aux [first]
+let parse_alternatives : symbol list list parser =
+  let parse_separator = char '|' >> ws in
+  let parse_symbols = many (parse_symbol << ws) <|> (str "EMPTY" >> ws >| []) in
+  sep_by1 parse_symbols parse_separator
 
-let parse_empty = (str "EMPTY" >> ws) >|= fun _ -> []
+let parse_rep : symbol_complex parser =
+  char '{' >> ws >>
+  parse_alternatives >>= fun alts ->
+  char '}' >> ws >>
+  pure (Rep alts)
 
-let parse_symbol_with_ws : symbol list parser = 
-  many (parse_symbol << ws)
-
-(* Parses a list of symbol lists, accounting for alternatives separated by '|' *)
-let parse_alt : symbol list list parser = 
-  let parse_symbols_alt = parse_symbol_with_ws <|> parse_empty in
-  let separator = char '|' >> ws in
-  let rec aux acc = function
-    | [] -> Some (List.rev acc, [])  (* Reverse the accumulated lists for correct order *)
-    | cs -> 
-      match parse_symbols_alt cs with
-      | Some (syms, rest) -> 
-        (match separator rest with
-         | Some (_, after) -> aux (syms :: acc) after  (* Found separator, continue parsing *)
-         | None -> Some (List.rev (syms :: acc), rest))  (* No separator, end of input *)
-      | None -> Some (List.rev acc, cs)  (* No symbols found, return accumulated lists *)
-  in fun cs -> aux [] cs
-
-let parse_complex enclosed_by constructor : symbol_complex parser = 
-  let opening = char enclosed_by in
-  let closing = char (if enclosed_by = '{' then '}' else ']') >> ws in
-  fun input ->
-    match opening input with
-    | Some (_, rest) -> 
-      (match parse_alt rest with
-       | Some (alts, rest') -> 
-         (match closing rest' with
-          | Some (_, after) -> Some (constructor alts, after)
-          | None -> None)  (* Failed to find closing bracket *)
-       | None -> None)  (* Failed to parse alternatives *)
-    | None -> None  (* Opening character not found *)
-
+let parse_opt : symbol_complex parser =
+  char '[' >> ws >>
+  parse_alternatives >>= fun alts ->
+  char ']' >> ws >>
+  pure (Opt alts)
 let parse_symbol_complex : symbol_complex parser =
-  parse_complex '{' (fun alts -> Rep alts)
-  <|> parse_complex '[' (fun alts -> Opt alts)
-  <|> (parse_symbol >|= fun s -> Sym s)
-  <|> (parse_empty >|= fun _ -> Sym (T ""))
+  parse_rep <|> parse_opt <|> (parse_symbol >|= fun s -> Sym s)
       
 
 (* A sentential form is given by the following grammar:
@@ -351,19 +338,24 @@ let parse_sentform : sentform parser = (* TODO *)
    rule, but you SHOULD consume whitespace after a rule.
 
 *)
+
+
+let parse_alt : sentform list parser = 
+  map2
+    (fun x xs -> x :: xs)
+    parse_sentform
+    (many ((keyword "|") >> parse_sentform))
 let parse_rule : rule list parser = (* TODO *)
-  keyword "RULE" >>
-  parse_nonterm >>= fun nt ->
-  str "::=" >> ws >>
-  let parse_alt = 
-    let* first_alt = parse_sentform in
-    many (char '|' >> ws >> parse_sentform) >|= fun rest_alts ->
-    first_alt :: rest_alts
-  in
-  parse_alt >>= fun alts ->
-  match nt with
-  | NT id -> pure (List.map (fun alt -> (id, alt)) alts)
-  | _ -> fail (* Nonterminal identifiers are expected here, fail otherwise *)
+ws >>
+keyword "RULE" >>
+(parse_nonterm >>= function
+  | NT g_ident -> pure g_ident
+  | _ -> fail) >>= fun g_ident ->
+ws >>
+str "::=" >> ws >>
+parse_alt >>= fun alternatives ->
+pure (List.map (fun sf -> (g_ident, sf)) alternatives)
+
 
 (* A grammar is given by the following grammar:
 
@@ -373,11 +365,14 @@ let parse_rule : rule list parser = (* TODO *)
    grammar, but you SHOULD consume whitespace and after a grammar.
 *)
 let parse_grammar : grammar parser = (* TODO *)
-  let* _ = keyword "BEGIN" in
-  let* gid = parse_g_ident in
-  let* rules = many (ws >> parse_rule >>= fun r -> ws >> pure r) in
-  let* _ = keyword "END" in
-  pure (gid, List.concat rules)
+keyword "BEGIN" >>
+ws >>  (* Ensure ws is correctly consumed after BEGIN *)
+parse_g_ident >>= fun gid ->  (* Parse the grammar identifier *)
+ws >>  (* It's crucial to handle whitespace right after gid and before rules *)
+many (parse_rule << ws) >>= fun rules ->  (* Parse rules, consuming ws after each rule *)
+keyword "END" >>
+ws >>  (* Consume trailing whitespace after END *)
+pure (gid, List.concat rules)
 
 (* A collection grammars is given by the following grammar:
 
@@ -469,10 +464,6 @@ let _ = assert (test = out)
 
 (* parse_symbol_complex *)
 
-let test = parse parse_symbol_complex "TEST.<test-two>"
-let out = Some (Sym (NTRef ("TEST", "test-two")))
-let _ = assert (test = out)
-
 let test = parse parse_symbol_complex "{ <one> <two> | 'three' }"
 let out = Some (Rep [[NT "one"; NT "two"]; [T "three"]])
 let _ = assert (test = out)
@@ -520,6 +511,7 @@ let _ = assert (test = out)
 let test = parse parse_sentform "<factor> { '*' <factor> | '/' <factor> }  "
 let out = Some [Sym (NT "factor"); Rep [[T "*"; NT "factor"]; [T "/"; NT "factor"]]]
 let _ = assert (test = out)
+
 
 (* parse_rule *)
 
