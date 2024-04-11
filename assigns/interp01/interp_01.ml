@@ -120,7 +120,10 @@ type command
   | Num of int             (* num *)
 and program = command list
 
-let parse_ident = fail (* TODO *)
+let parse_ident =  (* TODO *)
+many1 (satisfy is_upper_case) >|= implode << ws
+
+
 
 (* You are not required to used this but it may be useful in
    understanding how to use `rec_parser` *)
@@ -130,14 +133,41 @@ let rec parse_com () =
       (fun id p -> Def (id, p))
       (keyword "def" >> parse_ident << ws)
       (parse_prog_rec () << char ';')
-  in parse_def <|> fail (* TODO *)
+  in parse_def <|> (
+    choice [
+      keyword "drop" >| Drop;
+      keyword "swap" >| Swap;
+      keyword "dup" >| Dup;
+      keyword "." >| Trace;
+      keyword "+" >| Add;
+      keyword "-" >| Sub;
+      keyword "*" >| Mul;
+      keyword "/" >| Div;
+      keyword "<" >| Lt;
+      keyword "=" >| Eq;
+      (keyword "|>" >> parse_ident >>= fun id -> pure (Bind id));
+      (keyword "#" >> parse_ident >>= fun id -> pure (Call id));
+      (keyword "?" >> parse_prog_rec () << keyword ";" >>= fun prog -> pure (If prog));
+      (parse_ident >>= fun id -> pure (Ident id));
+      (many1 (satisfy is_digit) >>= fun digits -> pure (Num (int_of_string (implode digits))) << ws)
+    ]
+  )(* TODO *)
 and parse_prog_rec () =
   many ((rec_parser parse_com) << ws)
 
-let parse_prog = assert false (* TODO *)
+
+(* Function to apply a parser to a string input *)
+
+  let parse_prog s =
+    let chars = explode s in  (* Convert the input string to a char list *)
+    match (ws >> parse_prog_rec () << ws) chars with
+    | Some (commands, []) -> Some commands  (* Successfully parsed the entire input *)
+    | _ -> None  (* Parsing failed or did not consume all input *)
+  (* TODO *)
+  
 
 (* A VERY SMALL TEST SET *)
-(*
+
 let test = parse_prog "drop"
 let out = Some [Drop]
 let _ = assert (test = out)
@@ -176,7 +206,7 @@ let out = Some
     ;  Bind "X"
     ]
 let _ = assert (test = out)
-*)
+
 
 (* EVALUATION *)
 
@@ -187,10 +217,35 @@ type value
 type env = (ident * value) list
 type trace = string list
 
-let update_env = assert false (* TODO *)
-let lookup_env = assert false (* TODO *)
-let eval_prog = assert false (* TODO *)
-let interp = assert false (* TODO *)
+let update_env env id value = (id, value) :: env
+let lookup_env env id = List.assoc_opt id env
+(* A helper function to process a single command *)
+let eval_command config command =
+  let (stack, env, trace, prog) = config in
+  match command with
+  | Drop -> 
+      (match stack with
+      | _ :: s_tail -> (s_tail, env, trace, prog)
+      | [] -> ([], env, "panic: stack underflow" :: trace, prog))
+  (* Add cases for other commands here *)
+  | _ -> config
+
+let eval_prog (stack, env, trace, prog) =
+  let rec eval_loop (s, e, t, p) =
+    match p with
+    | [] -> (s, e, t, p)
+    | cmd :: cmds -> eval_loop (eval_command (s, e, t, cmds) cmd)
+  in
+  eval_loop (stack, env, trace, prog)
+
+let interp input =
+    match parse_prog input with
+    | Some prog -> 
+        let final_config = eval_prog ([], [], [], prog) in
+        let (_, _, trace, _) = final_config in
+        Some trace
+    | None -> None
+      
 
 (* END OF PROJECT CODE *)
 
@@ -207,6 +262,27 @@ let print_trace t =
       go t
   in go (List.rev t)
 
+
+let main () =
+    let inputs = [
+      "10 20 swap";
+      "5 dup";
+      "10 20 add";
+      "20 5 sub";
+      "2 3 mul";
+      "10 0 div";  (* This should handle or prevent division by zero *)
+    ] in
+    List.iter (fun input -> 
+      Printf.printf "Testing input: %s\n" input;
+      match interp input with
+      | None -> print_endline "Parse Error"
+      | Some t -> print_trace t
+    ) inputs
+  
+let _ = main ()
+  
+  
+  
 (*
 let main () =
   let input =
