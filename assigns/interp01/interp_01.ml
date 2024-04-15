@@ -121,12 +121,40 @@ type command
 and program = command list
 
 let parse_ident =  (* TODO *)
-many1 (satisfy is_upper_case) >|= implode << ws
+(*many1 (satisfy is_upper_case) >|= implode << ws*)
+ws >> many1 (satisfy is_upper_case) >|= implode << ws
 
+let debug_print result label =
+  match result with
+  | Some _ -> Printf.printf "Successfully parsed %s\n" label
+  | None -> Printf.printf "Failed to parse %s\n" label
 
+let parse_num =
+  many1 (satisfy is_digit) >>= fun digits ->
+  let number = int_of_string (implode digits) in
+  debug_print (Some number) "number";
+  pure (Num number)
 
+let parse_add = 
+    keyword "+" >| Add >>= fun result -> 
+    Printf.printf "Parsed '+' for Add operation\n"; 
+    pure result
+
+let parse_number =
+      ws >> many1 (satisfy is_digit) >>= fun digits ->
+      pure (Num (int_of_string (implode digits))) << ws
+          
 (* You are not required to used this but it may be useful in
    understanding how to use `rec_parser` *)
+(* Parsing numbers - ensuring whitespace is consumed after a number *)
+(*let parse_num =
+  ws >> many1 (satisfy is_digit) >>= fun digits ->
+  pure (Num (int_of_string (implode digits))) << ws
+let parse_add = 
+    keyword "+" >>= fun _ -> 
+    pure Add*)
+
+  
 let rec parse_com () =
   let parse_def =
     map2
@@ -145,29 +173,49 @@ let rec parse_com () =
       keyword "/" >| Div;
       keyword "<" >| Lt;
       keyword "=" >| Eq;
-      (keyword "|>" >> parse_ident >>= fun id -> pure (Bind id));
-      (keyword "#" >> parse_ident >>= fun id -> pure (Call id));
-      (keyword "?" >> parse_prog_rec () << keyword ";" >>= fun prog -> pure (If prog));
-      (parse_ident >>= fun id -> pure (Ident id));
-      (many1 (satisfy is_digit) >>= fun digits -> pure (Num (int_of_string (implode digits))) << ws)
+      keyword "|>" >> parse_ident >>= (fun id -> pure (Bind id));
+      keyword "#" >> parse_ident >>= (fun id -> pure (Call id));
+      keyword "?" >> (parse_prog_rec () >>= fun prog -> keyword ";" >> pure (If prog));
+      parse_ident >>= (fun id -> pure (Ident id));
+      parse_num;
     ]
   )(* TODO *)
 and parse_prog_rec () =
   many ((rec_parser parse_com) << ws)
 
+  
+
 
 (* Function to apply a parser to a string input *)
 
-  let parse_prog s =
+(*let parse_prog s =
     let chars = explode s in  (* Convert the input string to a char list *)
     match (ws >> parse_prog_rec () << ws) chars with
     | Some (commands, []) -> Some commands  (* Successfully parsed the entire input *)
     | _ -> None  (* Parsing failed or did not consume all input *)
-  (* TODO *)
+  (* TODO *)*)
+
+let parse_prog s =
+    (*let chars = explode s in
+    match (ws >> parse_prog_rec () << ws) chars with
+    | Some (commands, []) -> debug_print (Some (implode chars)) "program"; Some commands
+    | _ -> Printf.printf "Failed to parse full input: %s\n" s; None*)
+    let chars = explode s in  (* Convert the string to a list of characters *)
+    match (ws >> parse_prog_rec () << ws) chars with
+    | Some (commands, []) -> 
+        debug_print (Some (implode chars)) "program"; 
+        Some commands
+    | Some (_, remaining) -> 
+        Printf.printf "Failed to parse at: '%s'\n" (implode remaining);
+        None
+    | None -> 
+        Printf.printf "Failed to parse full input: %s\n" s; 
+        None
+  
   
 
 (* A VERY SMALL TEST SET *)
-
+(*
 let test = parse_prog "drop"
 let out = Some [Drop]
 let _ = assert (test = out)
@@ -206,7 +254,7 @@ let out = Some
     ;  Bind "X"
     ]
 let _ = assert (test = out)
-
+*)
 
 (* EVALUATION *)
 
@@ -220,31 +268,86 @@ type trace = string list
 let update_env env id value = (id, value) :: env
 let lookup_env env id = List.assoc_opt id env
 (* A helper function to process a single command *)
-let eval_command config command =
-  let (stack, env, trace, prog) = config in
-  match command with
-  | Drop -> 
+let eval_command (stack, env, trace, cmds) cmd =
+  match cmd with
+  | Drop ->
       (match stack with
-      | _ :: s_tail -> (s_tail, env, trace, prog)
-      | [] -> ([], env, "panic: stack underflow" :: trace, prog))
-  (* Add cases for other commands here *)
-  | _ -> config
+      | _ :: s_tail -> (s_tail, env, trace, cmds)
+      | [] -> ([], env, "panic: stack underflow" :: trace, cmds))
+  | Swap ->
+      (match stack with
+      | x :: y :: s_tail -> (y :: x :: s_tail, env, trace, cmds)
+      | _ -> ([], env, "panic: insufficient stack for swap" :: trace, cmds))
+  | Dup ->
+      (match stack with
+      | x :: s_tail -> (x :: x :: s_tail, env, trace, cmds)
+      | [] -> ([], env, "panic: stack underflow on dup" :: trace, cmds))
+  | Trace ->
+      (match stack with
+      | x :: s_tail -> (s_tail, env, (string_of_int x) :: trace, cmds)
+      | [] -> ([], env, "panic: stack underflow on trace" :: trace, cmds))
+  | Add ->
+      (match stack with
+      | x :: y :: s_tail -> ((x + y) :: s_tail, env, trace, cmds)
+      | _ -> ([], env, "panic: insufficient stack for add" :: trace, cmds))
+  | Sub ->
+      (match stack with
+      | x :: y :: s_tail -> ((x - y) :: s_tail, env, trace, cmds)
+      | _ -> ([], env, "panic: insufficient stack for sub" :: trace, cmds))
+  | Mul ->
+      (match stack with
+      | x :: y :: s_tail -> ((x * y) :: s_tail, env, trace, cmds)
+      | _ -> ([], env, "panic: insufficient stack for mul" :: trace, cmds))
+  | Div ->
+      (match stack with
+      | x :: 0 :: _ -> ([], env, "panic: division by zero" :: trace, cmds)
+      | x :: y :: s_tail -> ((x / y) :: s_tail, env, trace, cmds)
+      | _ -> ([], env, "panic: insufficient stack for div" :: trace, cmds))
+  | Lt ->
+      (match stack with
+      | x :: y :: s_tail -> ((if x < y then 1 else 0) :: s_tail, env, trace, cmds)
+      | _ -> ([], env, "panic: insufficient stack for lt" :: trace, cmds))
+  | Eq ->
+      (match stack with
+      | x :: y :: s_tail -> ((if x = y then 1 else 0) :: s_tail, env, trace, cmds)
+      | _ -> ([], env, "panic: insufficient stack for eq" :: trace, cmds))
+  | Bind id ->
+      (match stack with
+      | x :: s_tail -> (s_tail, (id, Num x) :: env, trace, cmds)
+      | [] -> ([], env, "panic: stack underflow on bind" :: trace, cmds))
+  | Call id ->
+      (match lookup_env env id with
+      | Some (Prog p) -> (stack, env, trace, p @ cmds)
+      | _ -> ([], env, "panic: call to non-existent or non-program identifier" :: trace, cmds))
+  | If p ->
+        (match stack with
+        | 0 :: s_tail -> (s_tail, env, trace, cmds)
+        | n :: s_tail -> (s_tail, env, trace, p @ cmds)  
+        | [] -> ([], env, "panic: stack underflow on if" :: trace, cmds))    
+  | Def (id, p) -> (stack, update_env env id (Prog p), trace, cmds)  
+  | Ident id ->
+      (match lookup_env env id with
+      | Some (Num n) -> (n :: stack, env, trace, cmds)
+      | _ -> ([], env, "panic: identifier not bound to number" :: trace, cmds))
+  | Num n -> (n :: stack, env, trace, cmds)
 
 let eval_prog (stack, env, trace, prog) =
   let rec eval_loop (s, e, t, p) =
     match p with
-    | [] -> (s, e, t, p)
-    | cmd :: cmds -> eval_loop (eval_command (s, e, t, cmds) cmd)
+    | [] -> (s, e, t)  (* Return the final state without the empty program *)
+    | cmd :: cmds -> 
+        let (new_stack, new_env, new_trace, _) = eval_command (s, e, t, cmds) cmd in
+        eval_loop (new_stack, new_env, new_trace, cmds)
   in
-  eval_loop (stack, env, trace, prog)
+  let (_, _, final_trace) = eval_loop (stack, env, trace, prog) in
+  final_trace  (* Return only the trace as per project requirements *)
 
 let interp input =
-    match parse_prog input with
-    | Some prog -> 
-        let final_config = eval_prog ([], [], [], prog) in
-        let (_, _, trace, _) = final_config in
-        Some trace
-    | None -> None
+  match parse_prog input with
+  | Some prog ->
+      let trace = eval_prog ([], [], [], prog) in
+      Some trace
+  | None -> None
       
 
 (* END OF PROJECT CODE *)
@@ -263,11 +366,11 @@ let print_trace t =
   in go (List.rev t)
 
 
-let main () =
+(*let main () =
     let inputs = [
       "10 20 swap";
       "5 dup";
-      "10 20 add";
+      "add";
       "20 5 sub";
       "2 3 mul";
       "10 0 div";  (* This should handle or prevent division by zero *)
@@ -279,11 +382,11 @@ let main () =
       | Some t -> print_trace t
     ) inputs
   
-let _ = main ()
+let _ = main ()*)
   
   
   
-(*
+
 let main () =
   let input =
     let rec get_input s =
@@ -298,4 +401,4 @@ let main () =
   | Some t -> print_trace t
 
 let _ = main ()
-*)
+

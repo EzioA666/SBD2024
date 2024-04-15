@@ -1,1 +1,9 @@
-def SQDIST ;
+def SQDIST 
+  dup       # Duplicate x -> stack: x, x, y
+  mul       # Square x -> stack: x^2, y
+  swap      # Swap x^2 and y -> stack: y, x^2
+  dup       # Duplicate y -> stack: y, y, x^2
+  mul       # Square y -> stack: y^2, x^2
+  swap      # Bring x^2 to top -> stack: x^2, y^2
+  add       # Add x^2 and y^2 -> stack: x^2 + y^2
+;
