@@ -167,10 +167,10 @@ let rec parse_com () =
       keyword "swap" >| Swap;
       keyword "dup" >| Dup;
       keyword "." >| Trace;
-      keyword "+" >| Add;
+      keyword "add" >| Add;
       keyword "-" >| Sub;
-      keyword "*" >| Mul;
-      keyword "/" >| Div;
+      keyword "mul" >| Mul;
+      keyword "div" >| Div;
       keyword "<" >| Lt;
       keyword "=" >| Eq;
       keyword "|>" >> parse_ident >>= (fun id -> pure (Bind id));

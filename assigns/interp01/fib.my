@@ -1,19 +1,21 @@
-def FIB 
-  dup          # Duplicate n for the comparison
-  1 swap <     # Check if n < 1 (since FIB(0) = 0 and FIB(1) = 1)
-  ? drop       # If n < 1, drop the duplicate n (now the top has the result)
-  ;
-  dup 1 =      # Check if n == 1
-  ? drop       # If n == 1, drop the duplicate n (now the top has the result)
-  ;
-  2 swap -     # Prepare to compute the Fibonacci for n >= 2: calculate n - 2
-  0 swap       # Push 0 to the stack to start the first two Fibonacci numbers (F0)
-  swap 1       # Push 1 to the stack to start the second Fibonacci number (F1)
-  ?            # Start the loop if the top (n-2) > 0
-    over over  # Copy the last two Fibonacci numbers (fn-1 and fn-2)
-    +          # Sum the last two numbers to get the new Fibonacci number
-    rot rot    # Rotate the stack to correct the order
-    1 -        # Decrement the counter (n-2)
-  ;
-  drop drop    # Clean up the stack, leaving only the last Fibonacci number
+def INITFIB
+  0 1
 ;
+
+def FIBLOOP
+  dup 2 - 
+  1 < ?    
+    drop   
+  ;
+    swap dup + 
+    swap 1 - #FIBLOOP 
+;
+
+def FIB
+  #INITFIB
+  dup 1 < ?   
+    drop      
+  ;           
+    #FIBLOOP  
+;
+
