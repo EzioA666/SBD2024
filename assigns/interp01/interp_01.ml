@@ -264,10 +264,13 @@ type value
   | Prog of program
 type env = (ident * value) list
 type trace = string list
+let update_env = assert false (* TODO *)
+let fetch_env = assert false (* TODO *)
 
 let update_env env id value = (id, value) :: env
 let lookup_env env id = List.assoc_opt id env
 (* A helper function to process a single command *)
+
 let eval_command (stack, env, trace, cmds) cmd =
   match cmd with
   | Drop ->

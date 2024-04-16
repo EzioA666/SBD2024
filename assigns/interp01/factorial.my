@@ -31,4 +31,4 @@ def FACT
   drop OUT
 ;
 
-1 2 3 4 #FACTORIAL .
+4 #FACTORIAL .
