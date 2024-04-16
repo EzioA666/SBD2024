@@ -167,10 +167,10 @@ let rec parse_com () =
       keyword "swap" >| Swap;
       keyword "dup" >| Dup;
       keyword "." >| Trace;
-      keyword "add" >| Add;
+      keyword "+" >| Add;
       keyword "-" >| Sub;
-      keyword "mul" >| Mul;
-      keyword "div" >| Div;
+      keyword "*" >| Mul;
+      keyword "/" >| Div;
       keyword "<" >| Lt;
       keyword "=" >| Eq;
       keyword "|>" >> parse_ident >>= (fun id -> pure (Bind id));
@@ -366,26 +366,6 @@ let print_trace t =
   in go (List.rev t)
 
 
-(*let main () =
-    let inputs = [
-      "10 20 swap";
-      "5 dup";
-      "add";
-      "20 5 sub";
-      "2 3 mul";
-      "10 0 div";  (* This should handle or prevent division by zero *)
-    ] in
-    List.iter (fun input -> 
-      Printf.printf "Testing input: %s\n" input;
-      match interp input with
-      | None -> print_endline "Parse Error"
-      | Some t -> print_trace t
-    ) inputs
-  
-let _ = main ()*)
-  
-  
-  
 
 let main () =
   let input =
@@ -401,4 +381,3 @@ let main () =
   | Some t -> print_trace t
 
 let _ = main ()
-

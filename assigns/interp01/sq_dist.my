@@ -1,9 +1,11 @@
 def SQDIST
   dup     
-  mul     
+  *     
   swap    
   dup     
-  mul     
+  *     
   swap    
-  add 
+  + 
 ;
+
+1 #SQDIST .
