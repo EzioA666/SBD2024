@@ -1,21 +1,17 @@
 def INITFIB
-  0 1
-;
-
-def FIBLOOP
-  dup 2 - 
-  1 < ?    
-    drop   
-  ;
-    swap dup + 
-    swap 1 - #FIBLOOP 
-;
+  dup 3 swap <
+; 
 
 def FIB
-  #INITFIB
-  dup 1 < ?   
-    drop      
-  ;           
-    #FIBLOOP  
+  #INITFIB 
+    1 SWAP 0 = ? 0    ;
+  dup 2 <?        
+   dup 2 swap -                 
+   #FIB             
+   swap 1 swap -
+   #FIB
+   +
+  ;                    
 ;
 
+4 #FIB .

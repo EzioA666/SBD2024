@@ -1,1 +1,3 @@
-2 3 * .
+def INITFIB
+  dup 3 swap <
+; 

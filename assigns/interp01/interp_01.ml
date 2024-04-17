@@ -258,18 +258,31 @@ let _ = assert (test = out)
 
 (* EVALUATION *)
 
+(* EVALUATION *)
+
 type stack = int list
-type value
-  = Num of int
+type value =
+  | Num of int
   | Prog of program
 type env = (ident * value) list
 type trace = string list
-let update_env = assert false (* TODO *)
-let fetch_env = assert false (* TODO *)
 
-let update_env env id value = (id, value) :: env
-let lookup_env env id = List.assoc_opt id env
-(* A helper function to process a single command *)
+(* Updated environment handling functions *)
+let update_env (env: env) (id: ident) (v: value) =
+  (id, v) :: env
+
+let fetch_env (env: env) (id: ident): value option =
+  let rec fetch env =
+    match env with
+    | [] -> None
+    | (ide, curr_val) :: rest ->
+        if ide = id then Some curr_val
+        else fetch rest
+  in
+  fetch env
+
+let string_of_stack stack =
+    List.fold_right (fun elem acc -> Printf.sprintf "%s %d" acc elem) stack ""
 
 let eval_command (stack, env, trace, cmds) cmd =
   match cmd with
@@ -318,10 +331,20 @@ let eval_command (stack, env, trace, cmds) cmd =
       (match stack with
       | x :: s_tail -> (s_tail, (id, Num x) :: env, trace, cmds)
       | [] -> ([], env, "panic: stack underflow on bind" :: trace, cmds))
-  | Call id ->
-      (match lookup_env env id with
+  (*| Call id ->
+      (match fetch_env env id with
       | Some (Prog p) -> (stack, env, trace, p @ cmds)
-      | _ -> ([], env, "panic: call to non-existent or non-program identifier" :: trace, cmds))
+      | _ -> ([], env, "panic: call to non-existent or non-program identifier" :: trace, cmds))*)
+  | Call id ->
+        Printf.printf "Attempting to call subroutine: %s\n" id;
+        (match fetch_env env id with
+        | Some (Prog p) ->
+            Printf.printf "Subroutine found, executing...\n";
+            (stack, env, trace, p @ cmds)  
+        | _ ->
+            Printf.printf "Subroutine not found or not a prsogram.\n";
+            ([], env, "panic: call to non-existent or non-program identifier" :: trace, cmds))
+    
   | If p ->
         (match stack with
         | 0 :: s_tail -> (s_tail, env, trace, cmds)
@@ -329,12 +352,12 @@ let eval_command (stack, env, trace, cmds) cmd =
         | [] -> ([], env, "panic: stack underflow on if" :: trace, cmds))    
   | Def (id, p) -> (stack, update_env env id (Prog p), trace, cmds)  
   | Ident id ->
-      (match lookup_env env id with
+      (match fetch_env env id with
       | Some (Num n) -> (n :: stack, env, trace, cmds)
       | _ -> ([], env, "panic: identifier not bound to number" :: trace, cmds))
   | Num n -> (n :: stack, env, trace, cmds)
 
-let eval_prog (stack, env, trace, prog) =
+(*let eval_prog (stack, env, trace, prog) =
   let rec eval_loop (s, e, t, p) =
     match p with
     | [] -> (s, e, t)  (* Return the final state without the empty program *)
@@ -343,7 +366,18 @@ let eval_prog (stack, env, trace, prog) =
         eval_loop (new_stack, new_env, new_trace, cmds)
   in
   let (_, _, final_trace) = eval_loop (stack, env, trace, prog) in
-  final_trace  (* Return only the trace as per project requirements *)
+  final_trace  (* Return only the trace as per project requirements *)*)
+let eval_prog (stack, env, trace, prog) =
+    let rec eval_loop (s, e, t, p) =
+      match p with
+      | [] -> (s, e, t)  (* No more commands to process *)
+      | cmd :: rest -> 
+          let (new_stack, new_env, new_trace, new_cmds) = eval_command (s, e, t, rest) cmd in
+          eval_loop (new_stack, new_env, new_trace, new_cmds)  (* Use new_cmds from eval_command *)
+    in
+    let (_, _, final_trace) = eval_loop (stack, env, trace, prog) in
+    final_trace  (* Return only the trace as per project requirements *)
+  
 
 let interp input =
   match parse_prog input with
