@@ -267,6 +267,7 @@ type value =
 type env = (ident * value) list
 type trace = string list
 
+<<<<<<< HEAD
 (* Updated environment handling functions *)
 let update_env (env: env) (id: ident) (v: value) =
   (id, v) :: env
@@ -386,6 +387,12 @@ let interp input =
       Some trace
   | None -> None
       
+=======
+let update_env = assert false (* TODO *)
+let fetch_env = assert false (* TODO *)
+let eval_prog = assert false (* TODO *)
+let interp = assert false (* TODO *)
+>>>>>>> upstream/main
 
 (* END OF PROJECT CODE *)
 
