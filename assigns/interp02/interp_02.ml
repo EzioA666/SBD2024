@@ -187,7 +187,24 @@ let ws = many (ws >> parse_comment) >> ws
 let keyword w = str w << ws
 
 let rec parse_com () =
-  let parse_fun = fail (* TODO *)
+  let parse_push =
+    let* _ = keyword "Push" in
+    let* v = parse_const in
+    pure (Push v)
+  in
+  let parse_bind =
+    let* _ = keyword "|>" in
+    let* x = parse_ident in
+    pure (Bind x)
+  in
+  let parse_fun =
+    let* _ = keyword "def" in
+    let* name = parse_ident in
+    let* _ = keyword "|" in
+    let* _ = keyword ">" in
+    let* prog = parse_prog_rec () in
+    let* _ = keyword "end" in
+    pure (Fun prog)
   in
   let parse_if =
     let* _ = keyword "?" in
@@ -207,12 +224,18 @@ let rec parse_com () =
   in
   choice
     (* TODO: Add more alternatives *)
-    [ parse_fun
+    [ parse_push
+    ; parse_bind
+    ; parse_fun
     ; parse_while
     ; parse_if
     ; parse_ident >|= (fun s -> Fetch s)
     ; parse_debug >|= (fun s -> Debug s)
     ]
+and parse_const =
+      let parse_num = parse_int >|= (fun n -> Num n) in
+      let parse_bool = parse_bool >|= (fun b -> Bool b) in
+      choice [parse_num; parse_bool]
 and parse_prog_rec () =
   many (rec_parser parse_com << ws)
 
@@ -221,9 +244,26 @@ let parse_prog = parse (ws >> parse_prog_rec ())
 (* FETCHING AND UPDATING *)
 
 (* fetch the value of `x` in the environment `e` *)
-let fetch_env e x = None (* TODO *)
+let rec fetch_env e x =  (* TODO *)
+match e with
+| Global bindings -> List.assoc_opt x bindings (* Search in global bindings *)
+| Local (record, enclosing_env) -> 
+  (match List.assoc_opt x record.local with
+  | Some _ as result -> result (* Found in local bindings *)
+  | None -> fetch_env enclosing_env x) (* Search in enclosing environment *)
 
-let rec update_env e x v = Global [] (* TODO *)
+let rec update_env e x v = (* TODO *)
+match e with
+| Global bindings -> Global ((x, v) :: bindings) (* Update global bindings *)
+| Local (record, enclosing_env) ->
+  if List.exists (fun (var, _) -> var = x) record.local then
+    (* Update existing local binding *)
+    let updated_locals = List.map (fun (var, value) -> if var = x then (x, v) else (var, value)) record.local in
+    Local ({record with local = updated_locals}, enclosing_env)
+  else
+    (* If not found in local, update enclosing environment *)
+    let updated_enclosing = update_env enclosing_env x v in
+    Local (record, updated_enclosing)
 
 (* EVALUTION *)
 
