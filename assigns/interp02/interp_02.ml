@@ -108,7 +108,7 @@ type const
 
 type command
   = Push of const | Trace
-  | Add | Mul | Div
+  | Add | Mul | Div |Sub(*new*)
   | And | Or | Not | Lt | Eq
   | If of program * program
   | While of program * program
@@ -282,7 +282,23 @@ let eval_step (c : stack * env * trace * program) =
   | _ :: _ :: _, _, _, Add :: _ -> panic c "type error (+ on non-integers)"
   | _ :: [], _, _, Add :: _ -> panic c "stack underflow (+ on single)"
   | [], _, _, Add :: _ -> panic c "stack underflow (+ on empty)"
-  | _ -> assert false (* TODO *)
+  (* TODO *)
+  (* Subtraction *)
+  | Const (Num m) :: Const (Num n) :: s, e, t, Sub :: p -> Const (Num (m - n)) :: s, e, t, p
+  (* Implement more arithmetic operations here *)
+  | Const (Num m) :: Const (Num n) :: s, e, t, Mul :: p -> Const (Num (m * n)) :: s, e, t, p
+  | Const (Num m) :: Const (Num n) :: s, e, t, Div :: p when n != 0 -> Const (Num (m / n)) :: s, e, t, p
+  | Const (Num _) :: Const (Num 0) :: _, _, _, Div :: _ -> panic c "division by zero"
+  (* Logical operations *)
+  | Const (Bool b1) :: Const (Bool b2) :: s, e, t, And :: p -> Const (Bool (b1 && b2)) :: s, e, t, p
+  | Const (Bool b1) :: Const (Bool b2) :: s, e, t, Or :: p -> Const (Bool (b1 || b2)) :: s, e, t, p
+  | Const (Bool b) :: s, e, t, Not :: p -> Const (Bool (not b)) :: s, e, t, p
+  (* If, While, and other control structures *)
+  | Const (Bool true) :: s, e, t, If (then_p, _) :: p -> s, e, t, then_p @ p
+  | Const (Bool false) :: s, e, t, If (_, else_p) :: p -> s, e, t, else_p @ p
+  | _ :: s, e, t, While (cond_p, body_p) :: p -> s, e, t, If (cond_p, body_p @ [While (cond_p, body_p)]) :: p
+  (* Error and unhandled cases *)
+  | _, _, _, _ -> panic c "unhandled command or type error"
 
 let rec eval c =
   match c with
@@ -316,6 +332,6 @@ let main () =
   | None -> print_endline "Parse Error"
   | Some t -> print_trace t
 
-(* let _ = main () *)
+let _ = main () 
 
 (* END OF FILE *)
