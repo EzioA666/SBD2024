@@ -113,7 +113,7 @@ type command
   | If of program * program
   | While of program * program
   | Bind of ident | Fetch of ident
-  | Fun of program | Call | Return
+  | Fun of ident * program | Call of ident | Return
   | Debug of string
 
 and program = command list
@@ -156,6 +156,7 @@ let to_string v =
 
 (* PARSING *)
 
+
 let parse_ident =
   map2
     (fun c cs -> implode (c :: cs))
@@ -183,20 +184,80 @@ let parse_comment =
 let parse_debug =
   char '"' >> many (satisfy ((<>) '"')) << char '"' >|= implode
 
+let parse_const =
+  let parse_num = parse_int >|= fun n -> Num n in  (* Assume Num n is of type const *)
+  let parse_bool = parse_bool >|= fun b -> Bool b in  (* Assume Bool b is of type const *)
+  choice [parse_num; parse_bool]
+
+let parse_push =
+    keyword "Push" >>
+    parse_const >|=
+    (fun v -> Push v)
+
+let parse_bind =
+      keyword "|>" >>
+      parse_ident >|=
+      (fun x -> Bind x)
+
+let parse_trace =
+    keyword "Trace" >> pure Trace
+
+let parse_return =
+      keyword "Return" >> pure Return
+    
+let parse_call =
+   keyword "#" >> parse_ident >|= (fun name -> Call name)
+
+let parse_add =
+    keyword "Add" >> pure Add
+
+let parse_mul =
+    keyword "Mul" >> pure Mul
+  
+let parse_div =
+    keyword "Div" >> pure Div
+  
+let parse_sub =
+    keyword "Sub" >> pure Sub
+  
+let parse_and =
+    keyword "And" >> pure And
+  
+let parse_or =
+    keyword "Or" >> pure Or
+  
+let parse_not =
+    keyword "Not" >> pure Not
+  
+let parse_lt =
+    keyword "Lt" >> pure Lt
+  
+let parse_eq =
+    keyword "Eq" >> pure Eq
+
+(* between: Parses content between two delimiters using provided parsers for open, close, and content. *)
+let between open_parser close_parser content_parser input =
+  match open_parser input with
+  | None -> None
+  | Some (_, rest1) ->  (* Successfully parsed the opening delimiter *)
+      match content_parser rest1 with
+      | None -> None
+      | Some (content, rest2) ->  (* Successfully parsed the content *)
+          match close_parser rest2 with
+          | None -> None
+          | Some (_, rest3) ->  (* Successfully parsed the closing delimiter *)
+              Some (content, rest3)
+
+  
+let parse_block =
+      between (char '(') (char ')') (many parse_int)
+    
+   
+
 let ws = many (ws >> parse_comment) >> ws
 let keyword w = str w << ws
 
 let rec parse_com () =
-  let parse_push =
-    let* _ = keyword "Push" in
-    let* v = parse_const in
-    pure (Push v)
-  in
-  let parse_bind =
-    let* _ = keyword "|>" in
-    let* x = parse_ident in
-    pure (Bind x)
-  in
   let parse_fun =
     let* _ = keyword "def" in
     let* name = parse_ident in
@@ -204,7 +265,11 @@ let rec parse_com () =
     let* _ = keyword ">" in
     let* prog = parse_prog_rec () in
     let* _ = keyword "end" in
-    pure (Fun prog)
+    let* _ = char '(' in
+    let* name = parse_ident in
+    let* _ = char ')' in
+    let* body = parse_block in
+    pure (Fun(name, prog))
   in
   let parse_if =
     let* _ = keyword "?" in
@@ -224,18 +289,25 @@ let rec parse_com () =
   in
   choice
     (* TODO: Add more alternatives *)
-    [ parse_push
-    ; parse_bind
-    ; parse_fun
-    ; parse_while
-    ; parse_if
+    [ parse_push 
+    ; parse_bind 
+    ; parse_fun 
+    ; parse_while 
+    ; parse_if 
+    ; parse_trace
+    ; parse_return
+    ; parse_add
+    ; parse_mul
+    ; parse_div
+    ; parse_sub
+    ; parse_and
+    ; parse_or
+    ; parse_not
+    ; parse_lt
+    ; parse_eq
     ; parse_ident >|= (fun s -> Fetch s)
     ; parse_debug >|= (fun s -> Debug s)
-    ]
-and parse_const =
-      let parse_num = parse_int >|= (fun n -> Num n) in
-      let parse_bool = parse_bool >|= (fun b -> Bool b) in
-      choice [parse_num; parse_bool]
+    ] 
 and parse_prog_rec () =
   many (rec_parser parse_com << ws)
 
