@@ -306,7 +306,20 @@ let local_id = function
 
 let eval_step (c : stack * env * trace * program) =
   match c with
-  
+  (*while and if else*)
+  | (stack, env, trace, While (cond_p, body_p) :: rest_p) ->
+    (* Push a modified If command to handle the loop *)
+    let continue_loop = body_p @ [While (cond_p, body_p)]  (* Append While to recheck after body *)
+    and exit_loop = rest_p  (* Simply continue with the rest if condition is false *)
+    in
+    (stack, env, trace, cond_p @ [If (continue_loop, exit_loop)] @ rest_p)
+  | (stack, env, trace, If (then_p, else_p) :: rest_p) ->
+    (* Assume the top of the stack holds a Boolean for the If condition *)
+    begin match stack with
+    | Const (Bool true) :: s -> (s, env, trace, then_p @ rest_p)
+    | Const (Bool false) :: s -> (s, env, trace, else_p @ rest_p)
+    | _ -> panic c "Invalid If condition: expected Boolean on stack"
+    end
   (* Push *)
   | (s, e, t, Push (Num n) :: p) -> (Const (Num n) :: s, e, t, p)
   | (s, e, t, Push (Bool b) :: p) -> (Const (Bool b) :: s, e, t, p)
@@ -336,10 +349,6 @@ let eval_step (c : stack * env * trace * program) =
     (match fetch_env e ident with
      | Some v -> (v :: s, e, t, p)
      | None -> panic (s, e, t, p) ("unbound identifier: " ^ ident))
-  (*If Else*)
-  | Const (Bool true) :: s, e, t, If (then_p, _) :: p -> s, e, t, then_p @ p
-  | Const (Bool false) :: s, e, t, If (_, else_p) :: p -> s, e, t, else_p @ p
-  | _ :: s, e, t, While (cond_p, body_p) :: p -> s, e, t, If (cond_p, body_p @ [While (cond_p, body_p)]) :: p
   (* Less Than *)
   | Const (Num x) :: Const (Num y) :: s, e, t, Lt :: p -> Const (Bool (x < y)) :: s, e, t, p
   | Const (Num _) :: _, _, _, Lt :: _ -> panic c "type error (lt on non-integer or empty stack)"
