@@ -340,6 +340,16 @@ let eval_step (c : stack * env * trace * program) =
   | Const (Bool true) :: s, e, t, If (then_p, _) :: p -> s, e, t, then_p @ p
   | Const (Bool false) :: s, e, t, If (_, else_p) :: p -> s, e, t, else_p @ p
   | _ :: s, e, t, While (cond_p, body_p) :: p -> s, e, t, If (cond_p, body_p @ [While (cond_p, body_p)]) :: p
+  (* Less Than *)
+  | Const (Num x) :: Const (Num y) :: s, e, t, Lt :: p -> Const (Bool (x < y)) :: s, e, t, p
+  | Const (Num _) :: _, _, _, Lt :: _ -> panic c "type error (lt on non-integer or empty stack)"
+  | _, _, _, Lt :: _ -> panic c "stack underflow (lt on single or empty)"
+  (* Equals *)
+    | Const (Num x) :: Const (Num y) :: s, e, t, Eq :: p -> Const (Bool (x = y)) :: s, e, t, p
+    | Const (Bool x) :: Const (Bool y) :: s, e, t, Eq :: p -> Const (Bool (x = y)) :: s, e, t, p
+    | _ :: _ :: _, _, _, Eq :: _ -> panic c "type error (eq on non-integer or non-boolean)"
+    | _ :: [], _, _, Eq :: _ -> panic c "stack underflow (eq on single)"
+    | [], _, _, Eq :: _ -> panic c "stack underflow (eq on empty)"
   (*function defition*)
   | s, e, t, Fun prog :: p -> 
     let closure = Clos { def_id = local_id e; captured = []; prog } in
@@ -354,8 +364,8 @@ let eval_step (c : stack * env * trace * program) =
   (*Debug*)
     | s, e, t, Debug str::p -> s, e, str::t, p
   (*Return*)
-    (* Handling Return when exactly one value is on the stack, which should be preserved *)
-    | [x], Local ({ return_prog; _ }, parent_env), t, Return :: rest ->
+  (* Handling Return when exactly one value is on the stack, which should be preserved *)
+  | [x], Local ({ return_prog; _ }, parent_env), t, Return :: rest ->
       ([x], parent_env, t, rest)  (* Return to caller's context with the rest of the program *)
 
   (* Handling Return with no values on the stack; no value to return *)
