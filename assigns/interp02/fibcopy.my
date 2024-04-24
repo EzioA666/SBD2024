@@ -1,0 +1,6 @@
+(fact): |> n
+  (if) 0 n < ?
+    -1 Return ;
+  (else if) n 0 = ?
+    1 Return ;
+;
