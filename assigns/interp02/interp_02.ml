@@ -314,7 +314,7 @@ let eval_step (c : stack * env * trace * program) =
     in
     (stack, env, trace, cond_p @ [If (continue_loop, exit_loop)] @ rest_p)
   | (stack, env, trace, If (then_p, else_p) :: rest_p) ->
-    (* Assume the top of the stack holds a Boolean for the If condition *)
+    
     begin match stack with
     | Const (Bool true) :: s -> (s, env, trace, then_p @ rest_p)
     | Const (Bool false) :: s -> (s, env, trace, else_p @ rest_p)
@@ -392,6 +392,7 @@ let eval_step (c : stack * env * trace * program) =
   (* Attempt to return in a global context which is not permissible *)
   | _, Global _, t, Return :: _ ->
       panic c "Return command executed in global context"
+
 
   (* Catch all for other unmatched cases *)
   | _, _, _, _ -> panic c "Unhandled command or type error"
