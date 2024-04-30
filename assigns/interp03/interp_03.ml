@@ -510,15 +510,87 @@ type lexpr
   | App of lexpr * lexpr
   | Trace of lexpr
 
-let desugar (p : top_prog) : lexpr = Unit (* TODO *)
-let translate (e : lexpr) : stack_prog = [] (* TODO *)
+(*let rec desugar_expr = function
+  | Unit -> Unit
+  | Num n -> Num n
+  | Bool b -> Bool b
+  | Var v -> Var v
+  | Uop (u,e) -> Uop(u, desugar_expr e)
+  | Bop (b,e1,e2) -> Bop(b, desugar_expr e1, desugar_expr e2)
+  | Ife (e1,e2,e3) -> Ife(desugar_expr e1, desugar_expr e2, desugar_expr e3)
+  | Fun (args, e) -> 
+    List.fold_right (fun arg acc -> Fun (args, acc)) [args] (desugar_expr e)
+  | App(e1,e2) -> App(desugar_expr e1, desugar_expr e2)
+  | Trace(e) -> Trace(desugar_expr e) 
+
+
+let desugar (p : top_prog) : lexpr =  (* TODO *)
+  let desugar_def (id, args, body) =
+    if args = [] then
+      (* Single-variable binding transformed to an anonymous function application *)
+      App (Fun (id, desugar_expr body), Unit)
+    else
+      (* Function with arguments, apply currying *)
+      App (Fun (id, List.fold_right (fun arg acc -> Fun (arg, acc)) args (desugar_expr body)), Unit)
+  in
+  let rec sequence = function
+  | [] -> Unit  (* No more definitions, return Unit *)
+  | (id, args, body) :: [] -> 
+      (* Last definition, just desugar it without further application *)
+      desugar_def (id, args, body)
+  | (id, args, body) :: xs ->
+      (* For multiple definitions, transform into sequential applications *)
+      App (Fun (id, desugar_def (id, args, body)), sequence xs)
+  in sequence p *)
+  (* Function to transform expr to lexpr recursively *)
+let rec desugar_expr (e: expr) : lexpr = match e with
+| Unit -> Unit
+| Num n -> Num n
+| Bool b -> Bool b
+| Var v -> Var v
+| Uop (u, e) -> Uop (u, desugar_expr e)
+| Bop (b, e1, e2) -> Bop (b, desugar_expr e1, desugar_expr e2)
+| Fun (args, e) ->
+    (* Correct the handling of multiple arguments *)
+    (match args with
+     | [] -> desugar_expr e  (* No arguments, just the body *)
+     | [arg] -> Fun (arg, desugar_expr e)  (* Single argument, straightforward *)
+     | _ ->  (* Multiple arguments, need to curry *)
+         List.fold_right (fun arg acc -> Fun (arg, acc)) args (desugar_expr e))
+| App (e1, e2) -> App (desugar_expr e1, desugar_expr e2)
+| Trace (e) -> Trace (desugar_expr e)
+| Let (id, args, e1, e2) ->
+    App (Fun (id, desugar_expr e2), desugar_expr e1)  (* Transform Let into application *)
+| Ife (e1, e2, e3) -> Ife (desugar_expr e1, desugar_expr e2, desugar_expr e3)
+
+(* Main function to desugar top_prog into lexpr *)
+let desugar (prog : top_prog) : lexpr =
+  let rec process_program = function
+    | [] -> Unit  (* If the list is empty, return Unit *)
+    | (id, args, body) :: rest ->
+        let body_lexpr = desugar_expr body  (* Convert the current expr to lexpr *)
+        in let current = 
+          if args = [] then
+            Fun (id, body_lexpr)  (* No args, simple function *)
+          else
+            List.fold_right (fun arg acc -> Fun (arg, acc)) args body_lexpr  (* Currying for args *)
+        in let rest_desugared = process_program rest  (* Recursively process the rest of the list *)
+        in App (current, rest_desugared)  (* Combine the current processed item with the rest *)
+  in process_program prog
+
+  
+(*let translate (e : lexpr) : stack_prog = [] (* TODO *)
 let serialize (p : stack_prog) : string = "" (* TODO *)
 
 let compile (s : string) : string option =
   match parse_top_prog s with
   | Some p -> Some (serialize (translate (desugar p)))
-  | None -> None
+  | None -> None*)
 
+let compile_desugar (s : string) : lexpr option =
+    match parse_top_prog s with
+    | Some p -> Some (desugar p)
+    | None -> None
 (* ============================================================ *)
 
 (* END OF FILE *)
