@@ -602,14 +602,47 @@ let translate (e : lexpr) : stack_prog =  (* TODO *)
   in 
   translating e
 
-let serialize (p : stack_prog) : string = "" (* TODO *)
+let serialize (p : stack_prog) : string =  (* TODO *)
+    let rec serialize_command_list commands = 
+      match commands with
+      | [] -> ""
+      | cmd :: cmds -> serialize_command cmd ^ "\n" ^ serialize_command_list cmds
+      and serialize_command cmd =
+        match cmd with
+        | Push c -> "push " ^ serialize_const c
+        | Swap -> "swap"
+        | Trace -> "trace"
+        | Add -> "add"
+        | Sub -> "sub"
+        | Mul -> "mul"
+        | Div -> "div"
+        | Lt -> "lt"
+        | If (t, f) ->
+            "if\n" ^ serialize_command_list t ^ 
+            "\nelse\n" ^ serialize_command_list f ^ 
+            "\nend"
+        | Fun (id, prog) ->
+            Printf.sprintf "fun %s begin\n%s\nend" id (serialize_command_list prog)
+        | Call -> "call"
+        | Return -> "return"
+        | Assign id -> Printf.sprintf "assign %s" id
+        | Lookup id -> Printf.sprintf "lookup %s" id
+    
+      and serialize_const = function
+        | Num n -> string_of_int n
+        | Bool b -> string_of_bool b
+        | Unit -> "unit"
+        
+      in
+      serialize_command_list p
+  
 
-(*let compile (s : string) : string option =
+let compile (s : string) : string option =
   match parse_top_prog s with
   | Some p -> Some (serialize (translate (desugar p)))
-  | None -> None*)
+  | None -> None
 
-let compile_desugar (s : string) : lexpr option =
+(*let compile_desugar (s : string) : lexpr option =
     match parse_top_prog s with
     | Some p -> Some (desugar p)
     | None -> None
@@ -617,7 +650,7 @@ let compile_desugar (s : string) : lexpr option =
 let compile_faggot (s : string) : stack_prog option =
       match parse_top_prog s with
       | Some p ->Some (translate(desugar p))
-      | None -> None
+      | None -> None*)
 (* ============================================================ *)
 
 (* END OF FILE *)
