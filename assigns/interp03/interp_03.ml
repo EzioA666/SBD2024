@@ -580,25 +580,28 @@ let translate (e : lexpr) : stack_prog =  (* TODO *)
     | Bop (op, e1, e2) ->
       let e1_cmds = translating e1 in
       let e2_cmds = translating e2 in
-      e1_cmds @ e2_cmds @ (
         match op with
-        | Add -> [Add]
-        | Sub -> [Sub]
-        | Mul -> [Mul]
-        | Div -> [Div]
-        | And -> let true_branch = e2_cmds in (* Continue to evaluate e2 if e1 is true *)
-                let false_branch = [Push (Bool false)] in  (* Directly push false if e1 is false *)
-                [If (true_branch, false_branch)]  
-        | Or  -> let true_branch = [Push (Bool true)] in (* Directly push true if e1 is true *)
-                  let false_branch = e2_cmds in(* Continue to evaluate e2 if e1 is false *)
-                  [If (true_branch, false_branch)]  
-        | Lt  -> [Lt]
-        | Eq  -> [Swap; Lt; If ([Push (Bool false)], [Swap; Lt; If ([Push (Bool false)], [Push (Bool true)])])]
-        | Lte -> [Lt; If ([Push (Bool true)], [Push (Bool false)])]
-        | Gt  -> [Swap; Lt]
-        | Gte -> [Swap; Lt; If ([Push (Bool true)], [Push (Bool false)])]
-        | Neq -> [Swap; Lt; If ([Push (Bool true)], [Swap; Lt; If ([Push (Bool true)], [Push (Bool false)])])]
-      )
+        | Add -> e1_cmds @ e2_cmds @ [Add]
+        | Sub -> e1_cmds @ e2_cmds @ [Sub]
+        | Mul -> e1_cmds @ e2_cmds @ [Mul]
+        | Div -> e1_cmds @ e2_cmds @ [Div]
+        | And -> e1_cmds @ e2_cmds @ [
+          Swap;                
+          If ([], [Push (Bool false)])]  
+        | Or  ->      e1_cmds @ [
+                        If ([Push (Bool true)], e2_cmds)  (* If e1 is true, push true and skip e2; otherwise, evaluate e2 *)
+                      ]
+        | Lt  -> e1_cmds @e2_cmds @ [Lt]
+        | Eq  -> e1_cmds @ e2_cmds @ [Swap; Lt; Swap; Lt; If ([Push (Bool false)], [Push (Bool true)])]
+        (* If neither e1 < e2 nor e2 < e1, then they are equal *)
+        | Lte -> e1_cmds @ e2_cmds @ [Swap; Lt; If ([Push (Bool true)], [Push (Bool false)])]
+        (* e1 < e2 or e1 == e2 *)
+        | Gt  -> e2_cmds @ e1_cmds @ [Lt]
+        (* Reverse operands for greater than *)
+        | Gte -> e2_cmds @ e1_cmds @ [Swap; Lt; If ([Push (Bool true)], [Push (Bool false)])]
+        (* e2 < e1 or e1 == e2, effectively e1 >= e2 *)
+        | Neq -> e1_cmds @ e2_cmds @ [Swap; Lt; Swap; Lt; If ([Push (Bool true)], [Push (Bool false)])]
+        (* If either e1 < e2 or e2 < e1, then they are not equal *)
   in 
   translating e
 
@@ -642,7 +645,7 @@ let compile (s : string) : string option =
   | Some p -> Some (serialize (translate (desugar p)))
   | None -> None
 
-(*let compile_desugar (s : string) : lexpr option =
+let compile_desugar (s : string) : lexpr option =
     match parse_top_prog s with
     | Some p -> Some (desugar p)
     | None -> None
@@ -650,7 +653,7 @@ let compile (s : string) : string option =
 let compile_faggot (s : string) : stack_prog option =
       match parse_top_prog s with
       | Some p ->Some (translate(desugar p))
-      | None -> None*)
+      | None -> None
 (* ============================================================ *)
 
 (* END OF FILE *)

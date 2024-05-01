@@ -1,0 +1,22 @@
+push unit
+push unit
+assign _
+push 10
+push 5
+lookup k
+call
+call
+trace
+return
+call
+push unit
+assign k
+push unit
+assign x
+push unit
+assign y
+lookup x
+return
+return
+return
+call
