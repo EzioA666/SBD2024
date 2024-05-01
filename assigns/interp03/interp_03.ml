@@ -510,39 +510,6 @@ type lexpr
   | App of lexpr * lexpr
   | Trace of lexpr
 
-(*let rec desugar_expr = function
-  | Unit -> Unit
-  | Num n -> Num n
-  | Bool b -> Bool b
-  | Var v -> Var v
-  | Uop (u,e) -> Uop(u, desugar_expr e)
-  | Bop (b,e1,e2) -> Bop(b, desugar_expr e1, desugar_expr e2)
-  | Ife (e1,e2,e3) -> Ife(desugar_expr e1, desugar_expr e2, desugar_expr e3)
-  | Fun (args, e) -> 
-    List.fold_right (fun arg acc -> Fun (args, acc)) [args] (desugar_expr e)
-  | App(e1,e2) -> App(desugar_expr e1, desugar_expr e2)
-  | Trace(e) -> Trace(desugar_expr e) 
-
-
-let desugar (p : top_prog) : lexpr =  (* TODO *)
-  let desugar_def (id, args, body) =
-    if args = [] then
-      (* Single-variable binding transformed to an anonymous function application *)
-      App (Fun (id, desugar_expr body), Unit)
-    else
-      (* Function with arguments, apply currying *)
-      App (Fun (id, List.fold_right (fun arg acc -> Fun (arg, acc)) args (desugar_expr body)), Unit)
-  in
-  let rec sequence = function
-  | [] -> Unit  (* No more definitions, return Unit *)
-  | (id, args, body) :: [] -> 
-      (* Last definition, just desugar it without further application *)
-      desugar_def (id, args, body)
-  | (id, args, body) :: xs ->
-      (* For multiple definitions, transform into sequential applications *)
-      App (Fun (id, desugar_def (id, args, body)), sequence xs)
-  in sequence p *)
-  (* Function to transform expr to lexpr recursively *)
 let rec desugar_expr (e: expr) : lexpr = match e with
 | Unit -> Unit
 | Num n -> Num n
@@ -551,38 +518,93 @@ let rec desugar_expr (e: expr) : lexpr = match e with
 | Uop (u, e) -> Uop (u, desugar_expr e)
 | Bop (b, e1, e2) -> Bop (b, desugar_expr e1, desugar_expr e2)
 | Fun (args, e) ->
-    (* Correct the handling of multiple arguments *)
     (match args with
-     | [] -> desugar_expr e  (* No arguments, just the body *)
-     | [arg] -> Fun (arg, desugar_expr e)  (* Single argument, straightforward *)
-     | _ ->  (* Multiple arguments, need to curry *)
+     | [] -> desugar_expr e  
+     | [arg] -> Fun (arg, desugar_expr e)  
+     | _ ->  
          List.fold_right (fun arg acc -> Fun (arg, acc)) args (desugar_expr e))
 | App (e1, e2) -> App (desugar_expr e1, desugar_expr e2)
 | Trace (e) -> Trace (desugar_expr e)
 | Let (id, args, e1, e2) ->
-    App (Fun (id, desugar_expr e2), desugar_expr e1)  (* Transform Let into application *)
+  if args = [] then
+    App (Fun (id, desugar_expr e2), desugar_expr e1)
+  else
+    App (List.fold_right (fun arg acc -> Fun (arg, acc)) (id::args) (desugar_expr e2), desugar_expr e1)
 | Ife (e1, e2, e3) -> Ife (desugar_expr e1, desugar_expr e2, desugar_expr e3)
 
-(* Main function to desugar top_prog into lexpr *)
-let desugar (prog : top_prog) : lexpr =
-  let rec process_program = function
-    | [] -> Unit  (* If the list is empty, return Unit *)
-    | (id, args, body) :: rest ->
-        let body_lexpr = desugar_expr body  (* Convert the current expr to lexpr *)
-        in let current = 
-          if args = [] then
-            Fun (id, body_lexpr)  (* No args, simple function *)
-          else
-            List.fold_right (fun arg acc -> Fun (arg, acc)) args body_lexpr  (* Currying for args *)
-        in let rest_desugared = process_program rest  (* Recursively process the rest of the list *)
-        in App (current, rest_desugared)  (* Combine the current processed item with the rest *)
-  in process_program prog
 
+(* Main function to desugar top_prog into lexpr *)
+let desugar (p : top_prog) : lexpr =
+  let rec process_program = function
+  | [] -> Unit  (* If there's no more code to process, return Unit or some other termination expression *)
+  | (id, args, body) :: rest ->
+      let body_lexpr = desugar_expr body in
+      let function_expr = 
+        match args with
+        | [] -> Fun (id, body_lexpr)  (* No arguments, unlikely for k but handled *)
+        | [arg] -> Fun (id, Fun (arg, body_lexpr))  (* Single argument, straightforward *)
+        | _ ->  (* Multiple arguments, we apply currying *)
+            let curried_fun = List.fold_right (fun arg acc -> Fun (arg, acc)) args body_lexpr in
+            Fun (id, curried_fun)  (* Define function k with curried function *)
+      in
+      let rest_expr = process_program rest in  (* Process the rest of the program *)
+      App (function_expr, rest_expr)  (* Apply the current function to the rest of the processed program *)
+in
+  process_program p
   
-(*let translate (e : lexpr) : stack_prog = [] (* TODO *)
+let translate (e : lexpr) : stack_prog =  (* TODO *)
+  let rec translating e = 
+    match  e with
+    | Unit -> [Push Unit]
+    | Var v -> [Lookup v]
+    | Num n -> [Push (Num n)]
+    | Bool b -> [Push (Bool b)]
+    | Fun (id, body) ->
+      let body_cmds = translating body in
+      [Push (Unit); Assign id] @ body_cmds @ [Return]
+    | App (f, args) ->
+      let f_cmds = translating f in
+      let arg_cmds = translating args in
+      arg_cmds @ f_cmds @ [Call] 
+    | Ife (cond, then_exp, else_exp) ->
+        let cond_cmds = translating cond in
+        let then_cmds = translating then_exp in
+        let else_cmds = translating else_exp in
+        cond_cmds @ [If (then_cmds, else_cmds)]
+    | Trace e1 -> translating e1 @ [Trace]
+    | Uop (op, e) ->
+      let e_cmds = translating e in
+      (match op with
+      | Neg -> [Push (Num 0)] @ e_cmds @ [Sub]  
+      | Not -> e_cmds @ [If ([Push (Bool false)], [Push (Bool true)])])
+    | Bop (op, e1, e2) ->
+      let e1_cmds = translating e1 in
+      let e2_cmds = translating e2 in
+      e1_cmds @ e2_cmds @ (
+        match op with
+        | Add -> [Add]
+        | Sub -> [Sub]
+        | Mul -> [Mul]
+        | Div -> [Div]
+        | And -> let true_branch = e2_cmds in (* Continue to evaluate e2 if e1 is true *)
+                let false_branch = [Push (Bool false)] in  (* Directly push false if e1 is false *)
+                [If (true_branch, false_branch)]  
+        | Or  -> let true_branch = [Push (Bool true)] in (* Directly push true if e1 is true *)
+                  let false_branch = e2_cmds in(* Continue to evaluate e2 if e1 is false *)
+                  [If (true_branch, false_branch)]  
+        | Lt  -> [Lt]
+        | Eq  -> [Swap; Lt; If ([Push (Bool false)], [Swap; Lt; If ([Push (Bool false)], [Push (Bool true)])])]
+        | Lte -> [Lt; If ([Push (Bool true)], [Push (Bool false)])]
+        | Gt  -> [Swap; Lt]
+        | Gte -> [Swap; Lt; If ([Push (Bool true)], [Push (Bool false)])]
+        | Neq -> [Swap; Lt; If ([Push (Bool true)], [Swap; Lt; If ([Push (Bool true)], [Push (Bool false)])])]
+      )
+  in 
+  translating e
+
 let serialize (p : stack_prog) : string = "" (* TODO *)
 
-let compile (s : string) : string option =
+(*let compile (s : string) : string option =
   match parse_top_prog s with
   | Some p -> Some (serialize (translate (desugar p)))
   | None -> None*)
@@ -591,6 +613,11 @@ let compile_desugar (s : string) : lexpr option =
     match parse_top_prog s with
     | Some p -> Some (desugar p)
     | None -> None
+
+let compile_faggot (s : string) : stack_prog option =
+      match parse_top_prog s with
+      | Some p ->Some (translate(desugar p))
+      | None -> None
 (* ============================================================ *)
 
 (* END OF FILE *)
