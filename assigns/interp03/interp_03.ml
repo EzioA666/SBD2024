@@ -519,39 +519,35 @@ let rec desugar_expr (e: expr) : lexpr = match e with
 | Bop (b, e1, e2) -> Bop (b, desugar_expr e1, desugar_expr e2)
 | Fun (args, e) ->
     (match args with
-     | [] -> desugar_expr e  
-     | [arg] -> Fun (arg, desugar_expr e)  
-     | _ ->  
-         List.fold_right (fun arg acc -> Fun (arg, acc)) args (desugar_expr e))
+    | [] -> desugar_expr e
+    | args -> List.fold_right (fun arg acc -> Fun (arg, acc)) args (desugar_expr e))
 | App (e1, e2) -> App (desugar_expr e1, desugar_expr e2)
 | Trace (e) -> Trace (desugar_expr e)
 | Let (id, args, e1, e2) ->
-  if args = [] then
-    App (Fun (id, desugar_expr e2), desugar_expr e1)
-  else
-    App (List.fold_right (fun arg acc -> Fun (arg, acc)) (id::args) (desugar_expr e2), desugar_expr e1)
+  let body = desugar_expr e2 in
+  let fun_expr = if args = [] then Fun (id, body) else
+                 List.fold_right (fun arg acc -> Fun (arg, acc)) (id::args) body
+  in
+  App (fun_expr, desugar_expr e1)
 | Ife (e1, e2, e3) -> Ife (desugar_expr e1, desugar_expr e2, desugar_expr e3)
-
+(*Top level look up*)
 
 (* Main function to desugar top_prog into lexpr *)
 let desugar (p : top_prog) : lexpr =
   let rec process_program = function
-  | [] -> Unit  (* If there's no more code to process, return Unit or some other termination expression *)
-  | (id, args, body) :: rest ->
-      let body_lexpr = desugar_expr body in
-      let function_expr = 
-        match args with
-        | [] -> Fun (id, body_lexpr)  (* No arguments *)
-        | [arg] -> Fun (id, Fun (arg, body_lexpr))  (* Single argument, straightforward *)
-        | _ ->  (* Multiple arguments, we apply currying *)
-            let curried_fun = List.fold_right (fun arg acc -> Fun (arg, acc)) args body_lexpr in
-            Fun (id, curried_fun)  (*curried function *)
-      in
-      let rest_expr = process_program rest in  (* Process the rest of the program *)
-      App (function_expr, rest_expr)  (* Apply the current function to the rest of the processed program *)
-in
+    | [] -> Unit
+    | [id, args, body] ->
+        let body_lexpr = desugar_expr body in
+        List.fold_right (fun arg acc -> Fun (arg, acc)) (id::args) body_lexpr
+    | (id, args, body) :: rest ->
+        let body_lexpr = desugar_expr body in
+        let function_expr = if args = [] then Fun (id, body_lexpr) else
+                            List.fold_right (fun arg acc -> Fun (arg, acc)) (id::args) body_lexpr
+        in
+        let rest_expr = process_program rest
+        in App (function_expr, rest_expr)
+  in
   process_program p
-  
 let translate (e : lexpr) : stack_prog =  (* TODO *)
   let rec translating e = 
     match  e with
@@ -560,8 +556,7 @@ let translate (e : lexpr) : stack_prog =  (* TODO *)
     | Num n -> [Push (Num n)]
     | Bool b -> [Push (Bool b)]
     | Fun (id, body) ->
-      let body_cmds = translating body in
-      [Push (Unit); Assign id] @ body_cmds @ [Return]
+      [Fun("C", [Swap; Assign id]@translating body @ [Swap; Return])] 
     | App (f, args) ->
       let f_cmds = translating f in
       let arg_cmds = translating args in
