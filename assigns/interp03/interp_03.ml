@@ -541,11 +541,11 @@ let desugar (p : top_prog) : lexpr =
       let body_lexpr = desugar_expr body in
       let function_expr = 
         match args with
-        | [] -> Fun (id, body_lexpr)  (* No arguments, unlikely for k but handled *)
+        | [] -> Fun (id, body_lexpr)  (* No arguments *)
         | [arg] -> Fun (id, Fun (arg, body_lexpr))  (* Single argument, straightforward *)
         | _ ->  (* Multiple arguments, we apply currying *)
             let curried_fun = List.fold_right (fun arg acc -> Fun (arg, acc)) args body_lexpr in
-            Fun (id, curried_fun)  (* Define function k with curried function *)
+            Fun (id, curried_fun)  (*curried function *)
       in
       let rest_expr = process_program rest in  (* Process the rest of the program *)
       App (function_expr, rest_expr)  (* Apply the current function to the rest of the processed program *)
@@ -581,17 +581,17 @@ let translate (e : lexpr) : stack_prog =  (* TODO *)
       let e1_cmds = translating e1 in
       let e2_cmds = translating e2 in
         match op with
-        | Add -> e1_cmds @ e2_cmds @ [Add]
-        | Sub -> e1_cmds @ e2_cmds @ [Sub]
-        | Mul -> e1_cmds @ e2_cmds @ [Mul]
-        | Div -> e1_cmds @ e2_cmds @ [Div]
-        | And -> e1_cmds @ e2_cmds @ [
+        | Add -> e2_cmds @ e1_cmds @ [Add]
+        | Sub -> e2_cmds @ e1_cmds @ [Sub]
+        | Mul -> e2_cmds @ e1_cmds @ [Mul]
+        | Div -> e2_cmds @ e1_cmds @ [Div]
+        | And -> e2_cmds @ e1_cmds @ [
           Swap;                
           If ([], [Push (Bool false)])]  
         | Or  ->      e1_cmds @ [
                         If ([Push (Bool true)], e2_cmds)  (* If e1 is true, push true and skip e2; otherwise, evaluate e2 *)
                       ]
-        | Lt  -> e1_cmds @e2_cmds @ [Lt]
+        | Lt  -> e1_cmds @ e2_cmds @ [Lt]
         | Eq  -> e1_cmds @ e2_cmds @ [Swap; Lt; Swap; Lt; If ([Push (Bool false)], [Push (Bool true)])]
         (* If neither e1 < e2 nor e2 < e1, then they are equal *)
         | Lte -> e1_cmds @ e2_cmds @ [Swap; Lt; If ([Push (Bool true)], [Push (Bool false)])]
@@ -650,7 +650,7 @@ let compile_desugar (s : string) : lexpr option =
     | Some p -> Some (desugar p)
     | None -> None
 
-let compile_faggot (s : string) : stack_prog option =
+let compile_t (s : string) : stack_prog option =
       match parse_top_prog s with
       | Some p ->Some (translate(desugar p))
       | None -> None
